@@ -1,6 +1,7 @@
 use crate::{
     components::WorldPosition,
     resources::{MovementActions, WorldMap, WorldPositionReader},
+    tui::Position,
 };
 use amethyst::ecs::prelude::*;
 
@@ -13,6 +14,7 @@ pub struct SystemData<'s> {
     map: Write<'s, WorldMap>,
     entities: Entities<'s>,
     reader: WriteExpect<'s, WorldPositionReader>,
+    screenpos: WriteStorage<'s, Position>,
 }
 
 impl<'s> System<'s> for ApplyMovementSystem {
@@ -20,12 +22,7 @@ impl<'s> System<'s> for ApplyMovementSystem {
 
     fn run(&mut self, mut data: Self::SystemData) {
         let map = &mut data.map as &mut WorldMap;
-        loop {
-            let (entity, dir) = if let Ok(a) = data.movements.receiver().try_recv() {
-                a
-            } else {
-                break;
-            };
+        while let Ok((entity, dir)) = data.movements.receiver().try_recv() {
             let wp = data.worldpos.get_mut(entity).unwrap();
             let oldpos = *wp;
             *wp = wp.step_dir(dir);
@@ -56,12 +53,33 @@ impl<'s> System<'s> for ApplyMovementSystem {
 
         if redo {
             map.clear();
-            for (entity, wp) in (&data.entities, &data.worldpos).join() {
+            for (entity, wp, pos) in (
+                &data.entities,
+                &data.worldpos,
+                (&mut data.screenpos).maybe(),
+            )
+                .join()
+            {
                 map.tiles[wp.y as usize][wp.x as usize] = Some(entity);
+                if let Some(pos) = pos {
+                    pos.x = wp.x as u16;
+                    pos.y = wp.y as u16;
+                }
             }
         } else {
-            for (entity, wp, _) in (&data.entities, &data.worldpos, &dirty).join() {
+            for (entity, wp, pos, _) in (
+                &data.entities,
+                &data.worldpos,
+                (&mut data.screenpos).maybe(),
+                &dirty,
+            )
+                .join()
+            {
                 map.tiles[wp.y as usize][wp.x as usize] = Some(entity);
+                if let Some(pos) = pos {
+                    pos.x = wp.x as u16;
+                    pos.y = wp.y as u16;
+                }
             }
         }
     }

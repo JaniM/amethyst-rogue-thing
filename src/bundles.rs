@@ -1,4 +1,7 @@
-use crate::systems::*;
+use crate::{
+    systems::*,
+    tui::{TuiInputSystem, TuiRenderSystem},
+};
 use amethyst::{
     core::{bundle::SystemBundle, Error},
     ecs::prelude::DispatcherBuilder,
@@ -9,12 +12,14 @@ pub struct LiveBundle;
 
 impl<'a, 'b> SystemBundle<'a, 'b> for LiveBundle {
     fn build(self, builder: &mut DispatcherBuilder<'a, 'b>) -> Result<(), Error> {
-        builder.add(DetectPlayerActionSystem, "detect_player_action", &[]);
+        builder.add(TuiInputSystem, "input", &[]);
         builder.add(
-            PositionRenderablesSystem::default(),
-            "position_renderable",
-            &[],
+            DetectPlayerActionSystem::default(),
+            "detect_player_action",
+            &["input"],
         );
+        builder.add(LogDisplaySystem, "log_display", &[]);
+        builder.add_thread_local(TuiRenderSystem::default());
         Ok(())
     }
 }

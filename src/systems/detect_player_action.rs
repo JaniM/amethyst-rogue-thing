@@ -1,35 +1,47 @@
 use crate::{
     data::{Direction, PlayerAction},
-    resources::PlayerActionResource,
+    resources::{LogEvents, PlayerActionResource},
+    tui::Key,
 };
-use amethyst::{core::timing::Time, ecs::prelude::*, input::InputHandler};
+use amethyst::{
+    core::{shrev::EventChannel, timing::Time},
+    ecs::{prelude::*, SystemData as _},
+};
 
-pub struct DetectPlayerActionSystem;
+#[derive(Default)]
+pub struct DetectPlayerActionSystem {
+    reader: Option<ReaderId<Key>>,
+}
 
 #[derive(SystemData)]
 pub struct SystemData<'s> {
-    input: Read<'s, InputHandler<String, String>>,
+    inputs: Read<'s, EventChannel<Key>>,
     action: Write<'s, PlayerActionResource>,
     time: Read<'s, Time>,
+    log: Read<'s, LogEvents>,
 }
 
 impl<'s> System<'s> for DetectPlayerActionSystem {
     type SystemData = SystemData<'s>;
 
     fn run(&mut self, mut data: Self::SystemData) {
-        let action = if data.input.action_is_down("up").unwrap() {
-            Some(PlayerAction::Move(Direction::Up))
-        } else if data.input.action_is_down("down").unwrap() {
-            Some(PlayerAction::Move(Direction::Down))
-        } else if data.input.action_is_down("left").unwrap() {
-            Some(PlayerAction::Move(Direction::Left))
-        } else if data.input.action_is_down("right").unwrap() {
-            Some(PlayerAction::Move(Direction::Right))
-        } else if data.input.action_is_down("wait").unwrap() {
-            Some(PlayerAction::Wait)
-        } else {
-            None
-        };
+        use Direction::*;
+
+        let mut action = None;
+
+        for key in data.inputs.read(self.reader.as_mut().unwrap()) {
+            match key {
+                Key::Esc => action = Some(PlayerAction::Quit),
+                Key::Char('w') => action = Some(PlayerAction::Move(Up)),
+                Key::Char('s') => action = Some(PlayerAction::Move(Down)),
+                Key::Char('a') => action = Some(PlayerAction::Move(Left)),
+                Key::Char('d') => action = Some(PlayerAction::Move(Right)),
+                x => {
+                    data.log.send(format!("Unrecognized input: {:?}", x));
+                    action = Some(PlayerAction::Wait);
+                }
+            }
+        }
 
         data.action.hold_delay -= data.time.delta_seconds();
 
@@ -39,5 +51,15 @@ impl<'s> System<'s> for DetectPlayerActionSystem {
         } else if action.is_none() {
             data.action.hold_delay = 0.0;
         }
+    }
+
+    fn setup(&mut self, res: &mut Resources) {
+        Self::SystemData::setup(res);
+        res.insert(EventChannel::<Key>::new());
+        self.reader = Some(
+            res.get_mut::<EventChannel<Key>>()
+                .unwrap()
+                .register_reader(),
+        );
     }
 }

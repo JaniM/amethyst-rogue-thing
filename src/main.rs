@@ -11,10 +11,10 @@ extern crate termion;
 mod bundles;
 mod components;
 mod data;
-mod graphic;
 mod play;
 mod resources;
 mod systems;
+mod tui;
 
 use crate::{
     bundles::{LiveBundle, TickBundle},
@@ -22,12 +22,9 @@ use crate::{
 };
 
 use amethyst::{
-    core::{transform::TransformBundle, ArcThreadPool, SystemBundle},
+    core::{frame_limiter::FrameRateLimitStrategy, ArcThreadPool, SystemBundle},
     ecs::{Dispatcher, DispatcherBuilder},
-    input::{Bindings, Button, InputBundle},
     prelude::*,
-    renderer::{DisplayConfig, DrawFlat, Pipeline, PosTex, RenderBundle, Stage, VirtualKeyCode},
-    utils::application_root_dir,
 };
 
 pub struct CustomGameData<'a, 'b> {
@@ -96,31 +93,12 @@ impl<'a, 'b> DataInit<CustomGameData<'a, 'b>> for CustomGameDataBuilder<'a, 'b> 
 fn main() -> amethyst::Result<()> {
     amethyst::start_logger(Default::default());
 
-    let path = format!("{}/resources/display_config.ron", application_root_dir());
-    let config = DisplayConfig::load(&path);
-
-    let pipe = Pipeline::build().with_stage(
-        Stage::with_backbuffer()
-            .clear_target([0.0, 0.0, 0.0, 1.0], 1.0)
-            .with_pass(DrawFlat::<PosTex>::new()),
-    );
-
-    let mut bindings = Bindings::new();
-    bindings.insert_action_binding("up".to_owned(), vec![Button::Key(VirtualKeyCode::W)]);
-    bindings.insert_action_binding("down".to_owned(), vec![Button::Key(VirtualKeyCode::S)]);
-    bindings.insert_action_binding("left".to_owned(), vec![Button::Key(VirtualKeyCode::A)]);
-    bindings.insert_action_binding("right".to_owned(), vec![Button::Key(VirtualKeyCode::D)]);
-    bindings.insert_action_binding("wait".to_owned(), vec![Button::Key(VirtualKeyCode::X)]);
-
-    let input_bundle = InputBundle::<String, String>::new().with_bindings(bindings);
-
     let game_data = CustomGameDataBuilder::default()
         .with_live_bundle(LiveBundle::default())?
-        .with_live_bundle(RenderBundle::new(pipe, Some(config)))?
-        .with_live_bundle(TransformBundle::new())?
-        .with_live_bundle(input_bundle)?
         .with_tick_bundle(TickBundle::default())?;
-    let mut game = Application::new("./", PlayState, game_data)?;
+    let mut game = Application::build("./", PlayState)?
+        .with_frame_limit(FrameRateLimitStrategy::default(), 20)
+        .build(game_data)?;
 
     game.run();
 

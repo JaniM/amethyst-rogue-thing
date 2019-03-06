@@ -80,9 +80,9 @@ impl<'s> System<'s> for AggressiveAISystem {
                     }
                 } else if dy > 1 {
                     if target_wp.y < wp.y {
-                        Some(Down)
-                    } else {
                         Some(Up)
+                    } else {
+                        Some(Down)
                     }
                 } else {
                     None

@@ -1,10 +1,10 @@
 use crate::{
-    components::{Dead, Health, Stunned},
-    graphic::create_colour_material_static,
+    components::{Dead, Health, Name, Stunned},
     play::initialise_enemy,
-    resources::AttackActions,
+    resources::{AttackActions, LogEvents},
+    tui::TextBlock,
 };
-use amethyst::{ecs::prelude::*, renderer::Material};
+use amethyst::ecs::prelude::*;
 
 pub struct ApplyAttacksSystem;
 
@@ -15,26 +15,35 @@ pub struct SystemData<'s> {
     stun: WriteStorage<'s, Stunned>,
     attacks: Write<'s, AttackActions>,
     lazy: Read<'s, LazyUpdate>,
+    log: Read<'s, LogEvents>,
+    name: ReadStorage<'s, Name>,
 }
 
 impl<'s> System<'s> for ApplyAttacksSystem {
     type SystemData = SystemData<'s>;
 
     fn run(&mut self, mut data: Self::SystemData) {
-        loop {
-            let attack_event = if let Ok(a) = data.attacks.receiver().try_recv() {
-                a
-            } else {
-                break;
-            };
-
+        while let Ok(attack_event) = data.attacks.receiver().try_recv() {
             let target = attack_event.target;
 
             if data.dead.get(target).is_some() {
-                println!("Attacked a dead target");
+                data.log.send("Attacked a dead target");
             } else if let Some(health) = data.health.get_mut(target) {
                 health.health -= 1;
-                println!("Dealt damage to {:?}: {} hp left", target, health.health);
+                data.log.send(format!(
+                    "{} (id {}) attacked {} (id {}): {} hp left",
+                    data.name
+                        .get(attack_event.attacker)
+                        .map(|x| x.0.as_str())
+                        .unwrap_or("Unknown"),
+                    attack_event.attacker.id(),
+                    data.name
+                        .get(target)
+                        .map(|x| x.0.as_str())
+                        .unwrap_or("Unknown"),
+                    target.id(),
+                    health.health
+                ));
 
                 if let Some(stun) = data.stun.get_mut(target) {
                     stun.time += 1;
@@ -46,16 +55,23 @@ impl<'s> System<'s> for ApplyAttacksSystem {
 
                 if health.health <= 0 {
                     data.dead.insert(target, Dead).ok();
+                    data.log.send(format!(
+                        "{} (id {}) died",
+                        data.name
+                            .get(target)
+                            .map(|x| x.0.as_str())
+                            .unwrap_or("Unknown"),
+                        target.id(),
+                    ));
                     data.lazy.exec_mut(move |world| {
                         initialise_enemy(world);
-                        let material = create_colour_material_static(world, [1.0, 1.0, 0.0, 1.0]);
-                        if let Some(mat) = world.write_storage::<Material>().get_mut(target) {
-                            *mat = material
+                        if let Some(mat) = world.write_storage::<TextBlock>().get_mut(target) {
+                            mat.rows[0] = "x".to_owned();
                         }
                     })
                 }
             } else {
-                println!("Attacked an entity without Health");
+                data.log.send("Attacked an entity without Health");
             }
         }
     }

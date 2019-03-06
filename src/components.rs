@@ -30,8 +30,8 @@ impl WorldPosition {
     pub fn step_dir(&self, dir: Direction) -> WorldPosition {
         let mut wp = self.clone();
         match dir {
-            Direction::Up => wp.y += 1,
-            Direction::Down => wp.y -= 1,
+            Direction::Up => wp.y -= 1,
+            Direction::Down => wp.y += 1,
             Direction::Left => wp.x -= 1,
             Direction::Right => wp.x += 1,
         }
@@ -130,27 +130,15 @@ pub struct AnimateMovement {
     pub used_time: f32,
 }
 
-impl Component for AnimateMovement {
-    type Storage = DenseVecStorage<Self>;
+#[derive(Default)]
+pub struct LogDisplay;
+
+impl Component for LogDisplay {
+    type Storage = NullStorage<Self>;
 }
 
-impl AnimateMovement {
-    pub fn with_speed(time: f32) -> Self {
-        AnimateMovement {
-            time,
-            used_time: time,
-            ..AnimateMovement::default()
-        }
-    }
+pub struct Name(pub String);
 
-    pub fn animate(&mut self, from: WorldPosition, to: WorldPosition) {
-        self.from = Some(from);
-        self.to = Some(to);
-        self.used_time = 0.0;
-    }
-
-    pub fn reset(&mut self) {
-        self.from = None;
-        self.used_time = 0.0;
-    }
+impl Component for Name {
+    type Storage = DenseVecStorage<Self>;
 }

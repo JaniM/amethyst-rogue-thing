@@ -37,6 +37,13 @@ impl<D> MpscChannel<D> {
     pub fn sender(&self) -> &channel::Sender<D> {
         return &self.sender;
     }
+
+    pub fn send<T>(&self, value: T)
+    where
+        T: Into<D>,
+    {
+        self.sender.send(value.into()).expect("Send failed");
+    }
 }
 
 pub type MovementActions = MpscChannel<(Entity, Direction)>;
@@ -87,3 +94,21 @@ impl WorldMap {
 }
 
 pub struct WorldPositionReader(pub ReaderId<ComponentEvent>);
+
+#[derive(Default, Debug, Clone)]
+pub struct EventLog {
+    pub events: Vec<String>,
+}
+
+pub struct LogLine(pub String);
+
+impl<T> From<T> for LogLine
+where
+    T: Into<String>,
+{
+    fn from(value: T) -> LogLine {
+        LogLine(value.into())
+    }
+}
+
+pub type LogEvents = MpscChannel<LogLine>;

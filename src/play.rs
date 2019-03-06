@@ -1,15 +1,13 @@
 use amethyst::{
-    core::transform::Transform,
     ecs::{SystemData, WriteStorage},
-    input::{is_close_requested, is_key_down},
     prelude::*,
-    renderer::{Camera, Projection, ScreenDimensions, VirtualKeyCode},
 };
 
 use crate::{
     components::*,
-    graphic::{create_colour_material_static, create_mesh_static, generate_rectangle_vertices},
+    data::PlayerAction,
     resources::{PlayerActionResource, PlayerEntity, WorldMap, WorldPositionReader},
+    tui::{self, Position, TextBlock},
     CustomGameData,
 };
 
@@ -25,25 +23,31 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
         let reader = WriteStorage::<WorldPosition>::fetch(&world.res).register_reader();
         world.add_resource(WorldPositionReader(reader));
 
-        initialise_camera(world);
+        world
+            .create_entity()
+            .with(Position::new(0, 0))
+            .with(TextBlock::new((0..10).map(|_| "..........")))
+            .build();
+
+        world
+            .create_entity()
+            .with(Position::new(0, 11))
+            .with(TextBlock::empty())
+            .with(LogDisplay)
+            .build();
+
         initialise_player(world);
         initialise_enemy(world);
+
+        data.data.tick_dispatcher.dispatch(&world.res);
     }
 
     fn handle_event(
         &mut self,
         _: StateData<CustomGameData>,
-        event: StateEvent,
+        _event: StateEvent,
     ) -> Trans<CustomGameData<'a, 'b>, StateEvent> {
-        if let StateEvent::Window(event) = &event {
-            if is_close_requested(&event) || is_key_down(&event, VirtualKeyCode::Escape) {
-                Trans::Quit
-            } else {
-                Trans::None
-            }
-        } else {
-            Trans::None
-        }
+        Trans::None
     }
 
     fn update(
@@ -52,66 +56,47 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
     ) -> Trans<CustomGameData<'a, 'b>, StateEvent> {
         data.world.write_resource::<PlayerActionResource>().action = None;
         data.data.live_dispatcher.dispatch(&data.world.res);
-        if data
-            .world
-            .read_resource::<PlayerActionResource>()
-            .action
-            .is_some()
-        {
+        if let Some(act) = &data.world.read_resource::<PlayerActionResource>().action {
+            if *act == PlayerAction::Quit {
+                return Trans::Pop;
+            }
             data.data.tick_dispatcher.dispatch(&data.world.res);
         }
         Trans::None
     }
-}
 
-fn initialise_camera(world: &mut World) {
-    let dim = {
-        let scr = world.read_resource::<ScreenDimensions>();
-        (scr.width(), scr.height())
-    };
-    let mut transform = Transform::default();
-    transform.set_z(1.0);
-    world
-        .create_entity()
-        .with(Camera::from(Projection::orthographic(
-            0.0, dim.0, 0.0, dim.1,
-        )))
-        .with(transform)
-        .build();
+    fn on_stop(&mut self, mut data: StateData<CustomGameData>) {
+        tui::cleanup(&mut data.world);
+        println!("Ok!");
+    }
 }
 
 fn initialise_player(world: &mut World) {
-    let mesh = create_mesh_static(world, generate_rectangle_vertices(0.0, 0.0, 50.0, 50.0));
-    let material = create_colour_material_static(world, [0.0, 0.0, 1.0, 1.0]);
     let entity = world
         .create_entity()
-        .with(Transform::default())
-        .with(mesh)
-        .with(material)
         .with(Character)
         .with(WorldPosition::new(1, 1))
         .with(PlayerControlledCharacter)
         .with(Team(0))
         .with(Health::new(10))
-        .with(AnimateMovement::with_speed(0.1))
+        .with(Position::default())
+        .with(TextBlock::single_rpw("@"))
+        .with(Name("Player".to_owned()))
         .build();
 
     world.add_resource(PlayerEntity(Some(entity)));
 }
 
 pub fn initialise_enemy(world: &mut World) {
-    let mesh = create_mesh_static(world, generate_rectangle_vertices(0.0, 0.0, 50.0, 50.0));
-    let material = create_colour_material_static(world, [1.0, 0.0, 0.0, 1.0]);
     world
         .create_entity()
-        .with(Transform::default())
-        .with(mesh)
-        .with(material)
         .with(Character)
         .with(WorldPosition::new(5, 5))
         .with(Team(1))
         .with(AggressiveAI::new(&[0]))
         .with(Health::new(5))
-        .with(AnimateMovement::with_speed(0.1))
+        .with(Position::default())
+        .with(TextBlock::single_rpw("c"))
+        .with(Name("Enemy".to_owned()))
         .build();
 }

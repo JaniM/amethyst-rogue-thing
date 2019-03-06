@@ -12,6 +12,7 @@ pub enum Direction {
 pub enum PlayerAction {
     Move(Direction),
     Wait,
+    Quit,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
