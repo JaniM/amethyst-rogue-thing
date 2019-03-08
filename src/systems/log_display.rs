@@ -1,11 +1,14 @@
 use crate::{
     components::{BoardDisplay, LogDisplay},
     resources::{EventLog, LogEvents},
-    tui::{Position, ScreenSize, TextBlock},
+    tui::{Position, ScreenSize, TextBlock, TuiChannel, TuiEvent},
 };
-use amethyst::ecs::prelude::*;
+use amethyst::ecs::{prelude::*, SystemData as _};
 
-pub struct LogDisplaySystem;
+#[derive(Default)]
+pub struct LogDisplaySystem {
+    tui_reader: Option<ReaderId<TuiEvent>>,
+}
 
 #[derive(SystemData)]
 pub struct SystemData<'s> {
@@ -16,6 +19,7 @@ pub struct SystemData<'s> {
     screen_size: Read<'s, ScreenSize>,
     position: WriteStorage<'s, Position>,
     board: ReadStorage<'s, BoardDisplay>,
+    tui_channel: Read<'s, TuiChannel>,
 }
 
 impl<'s> System<'s> for LogDisplaySystem {
@@ -24,6 +28,13 @@ impl<'s> System<'s> for LogDisplaySystem {
     fn run(&mut self, mut data: Self::SystemData) {
         let mut dirty = false;
         let mut log_pos = None;
+
+        for event in data.tui_channel.read(self.tui_reader.as_mut().unwrap()) {
+            match event {
+                TuiEvent::ScreenSize { .. } => dirty = true,
+                _ => {}
+            }
+        }
 
         data.log.events.reverse();
         while let Ok(line) = data.log_events.receiver().try_recv() {
@@ -72,5 +83,11 @@ impl<'s> System<'s> for LogDisplaySystem {
                 pos.y = data.screen_size.height / 2 - block.height / 2;
             }
         }
+    }
+
+    fn setup(&mut self, res: &mut Resources) {
+        Self::SystemData::setup(res);
+
+        self.tui_reader = Some(res.get_mut::<TuiChannel>().unwrap().register_reader());
     }
 }

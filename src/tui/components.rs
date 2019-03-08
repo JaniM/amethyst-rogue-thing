@@ -1,4 +1,5 @@
 use amethyst::ecs::prelude::*;
+use std::ops::Add;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct Position {
@@ -11,8 +12,30 @@ impl Position {
         Position { x, y }
     }
 
-    pub fn to_global(&self) -> GlobalPosition {
-        GlobalPosition::new(self.x, self.y)
+    pub fn global(self) -> GlobalPosition {
+        GlobalPosition(self)
+    }
+}
+
+impl Add for Position {
+    type Output = Position;
+
+    fn add(self, rhs: Position) -> Position {
+        Position {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl<'a> Add<&'a Position> for Position {
+    type Output = Position;
+
+    fn add(self, rhs: &'a Position) -> Position {
+        Position {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
     }
 }
 
@@ -21,14 +44,12 @@ impl Component for Position {
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
-pub struct GlobalPosition {
-    pub x: i32,
-    pub y: i32,
-}
+pub struct GlobalPosition(pub Position);
 
 impl GlobalPosition {
+    #[allow(dead_code)]
     pub fn new(x: i32, y: i32) -> Self {
-        GlobalPosition { x, y }
+        GlobalPosition(Position::new(x, y))
     }
 }
 

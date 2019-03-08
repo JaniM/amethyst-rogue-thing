@@ -1,10 +1,12 @@
 pub mod blink;
 pub mod components;
+pub mod event;
 pub mod input;
 pub mod render;
 
 pub use self::{
     components::*,
+    event::{TuiChannel, TuiEvent, TuiEventSystem},
     input::{Key, TuiInputSystem},
     render::{BlinkSystem, ScreenSize, TuiRenderSystem},
 };
@@ -43,6 +45,7 @@ impl<'a, 'b, 'c> SystemBundle<'a, 'b> for TuiBundle<'c> {
             "parent_hierarchy_system",
             self.dep,
         );
+        builder.add(TuiEventSystem::new(), "tui_event_system", self.dep);
         builder.add(BlinkSystem::new(), "blink_system", self.dep);
         builder.add_thread_local(TuiRenderSystem::new(easy.clone()));
         builder.add_thread_local(TuiInputSystem::new(easy));

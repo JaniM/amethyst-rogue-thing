@@ -15,7 +15,7 @@ impl<'a, 'b> SystemBundle<'a, 'b> for LiveBundle {
             "detect_player_action",
             &[],
         );
-        builder.add(LogDisplaySystem, "log_display", &[]);
+        builder.add(LogDisplaySystem::default(), "log_display", &[]);
         Ok(())
     }
 }
