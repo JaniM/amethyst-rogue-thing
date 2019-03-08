@@ -1,6 +1,6 @@
 use crate::{
     components::WorldPosition,
-    resources::{MovementActions, WorldMap, WorldPositionReader},
+    resources::{LogEvents, MovementActions, WorldMap, WorldPositionReader},
     tui::Position,
 };
 use amethyst::ecs::prelude::*;
@@ -15,6 +15,7 @@ pub struct SystemData<'s> {
     entities: Entities<'s>,
     reader: WriteExpect<'s, WorldPositionReader>,
     screenpos: WriteStorage<'s, Position>,
+    log: Read<'s, LogEvents>,
 }
 
 impl<'s> System<'s> for ApplyMovementSystem {
@@ -28,10 +29,10 @@ impl<'s> System<'s> for ApplyMovementSystem {
             *wp = wp.step_dir(dir);
             if !map.is_legal_pos(wp) {
                 *wp = oldpos;
-                println!("Movement out of bounds");
+                data.log.send("Movement out of bounds");
             } else if map.tiles[wp.y as usize][wp.x as usize].is_some() {
                 *wp = oldpos;
-                println!("Movement blocked");
+                data.log.send("Movement blocked");
             } else {
                 map.tiles[oldpos.y as usize][oldpos.x as usize] = None;
             }
@@ -62,8 +63,8 @@ impl<'s> System<'s> for ApplyMovementSystem {
             {
                 map.tiles[wp.y as usize][wp.x as usize] = Some(entity);
                 if let Some(pos) = pos {
-                    pos.x = wp.x as u16;
-                    pos.y = wp.y as u16;
+                    pos.x = wp.x;
+                    pos.y = wp.y;
                 }
             }
         } else {
@@ -77,8 +78,8 @@ impl<'s> System<'s> for ApplyMovementSystem {
             {
                 map.tiles[wp.y as usize][wp.x as usize] = Some(entity);
                 if let Some(pos) = pos {
-                    pos.x = wp.x as u16;
-                    pos.y = wp.y as u16;
+                    pos.x = wp.x;
+                    pos.y = wp.y;
                 }
             }
         }

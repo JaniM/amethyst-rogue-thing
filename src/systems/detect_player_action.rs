@@ -31,14 +31,14 @@ impl<'s> System<'s> for DetectPlayerActionSystem {
 
         for key in data.inputs.read(self.reader.as_mut().unwrap()) {
             match key {
-                Key::Esc => action = Some(PlayerAction::Quit),
-                Key::Char('w') => action = Some(PlayerAction::Move(Up)),
-                Key::Char('s') => action = Some(PlayerAction::Move(Down)),
-                Key::Char('a') => action = Some(PlayerAction::Move(Left)),
-                Key::Char('d') => action = Some(PlayerAction::Move(Right)),
+                Key::Character('\u{1b}') => action = Some(PlayerAction::Quit),
+                Key::Character('w') => action = Some(PlayerAction::Move(Up)),
+                Key::Character('s') => action = Some(PlayerAction::Move(Down)),
+                Key::Character('a') => action = Some(PlayerAction::Move(Left)),
+                Key::Character('d') => action = Some(PlayerAction::Move(Right)),
+                Key::Character('x') => action = Some(PlayerAction::Wait),
                 x => {
                     data.log.send(format!("Unrecognized input: {:?}", x));
-                    action = Some(PlayerAction::Wait);
                 }
             }
         }

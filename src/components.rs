@@ -2,6 +2,8 @@ use amethyst::ecs::{Component, DenseVecStorage, Entity, FlaggedStorage, NullStor
 
 use crate::data::Direction;
 
+pub use amethyst::core::Named;
+
 #[derive(Default, Debug, Copy, Clone)]
 pub struct PlayerControlledCharacter;
 
@@ -72,6 +74,7 @@ impl AggressiveAI {
     }
 }
 
+#[derive(Default)]
 pub struct Stunned {
     pub time: u32,
 }
@@ -137,8 +140,9 @@ impl Component for LogDisplay {
     type Storage = NullStorage<Self>;
 }
 
-pub struct Name(pub String);
+#[derive(Default)]
+pub struct BoardDisplay;
 
-impl Component for Name {
-    type Storage = DenseVecStorage<Self>;
+impl Component for BoardDisplay {
+    type Storage = NullStorage<Self>;
 }

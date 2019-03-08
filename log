@@ -1,0 +1,11 @@
+   Compiling rogue v0.1.0 (/home/jani/fun/rogue)
+warning: unused variable: `world`
+   --> src/tui/render.rs:209:16
+    |
+209 | pub fn cleanup(world: &mut World) {}
+    |                ^^^^^ help: consider using `_world` instead
+    |
+    = note: #[warn(unused_variables)] on by default
+
+    Finished dev [unoptimized + debuginfo] target(s) in 5.30s
+     Running `target/debug/rogue`

@@ -1,7 +1,7 @@
 use crate::{
-    components::LogDisplay,
+    components::{BoardDisplay, LogDisplay},
     resources::{EventLog, LogEvents},
-    tui::TextBlock,
+    tui::{Position, ScreenSize, TextBlock},
 };
 use amethyst::ecs::prelude::*;
 
@@ -13,6 +13,9 @@ pub struct SystemData<'s> {
     log: Write<'s, EventLog>,
     text_block: WriteStorage<'s, TextBlock>,
     log_display: ReadStorage<'s, LogDisplay>,
+    screen_size: Read<'s, ScreenSize>,
+    position: WriteStorage<'s, Position>,
+    board: ReadStorage<'s, BoardDisplay>,
 }
 
 impl<'s> System<'s> for LogDisplaySystem {
@@ -20,17 +23,53 @@ impl<'s> System<'s> for LogDisplaySystem {
 
     fn run(&mut self, mut data: Self::SystemData) {
         let mut dirty = false;
+        let mut log_pos = None;
+
         data.log.events.reverse();
         while let Ok(line) = data.log_events.receiver().try_recv() {
             data.log.events.push(line.0);
             dirty = true;
         }
         data.log.events.reverse();
-        data.log.events.truncate(10);
 
         if dirty {
-            for (block, _) in (&mut data.text_block, &data.log_display).join() {
-                block.rows = data.log.events.clone();
+            for (block, pos, _) in (
+                &mut data.text_block,
+                (&mut data.position).maybe(),
+                &data.log_display,
+            )
+                .join()
+            {
+                if let Some(pos) = pos {
+                    block.width = 50;
+                    let new_x = (data.screen_size.width - block.width - 1).max(15);
+                    let changed = pos.x != new_x;
+                    pos.x = new_x;
+                    block.width = (data.screen_size.width - pos.x - 1).min(50);
+                    block.height = data.screen_size.height - pos.y - 1;
+                    if changed {
+                        log_pos = Some(*pos);
+                    }
+                }
+                block.rows = [format!("({}, {})", block.width, block.height)]
+                    .iter()
+                    .chain(data.log.events.iter())
+                    .chain(["".to_owned()].into_iter().cycle())
+                    .map(|x| {
+                        ("| ".to_owned() + x)
+                            .chars()
+                            .take(block.width as usize - 1)
+                            .collect()
+                    })
+                    .take(block.height as usize)
+                    .collect();
+            }
+        }
+
+        if let Some(log_pos) = log_pos {
+            for (block, pos, _) in (&data.text_block, &mut data.position, &data.board).join() {
+                pos.x = log_pos.x / 2 - block.width / 2;
+                pos.y = data.screen_size.height / 2 - block.height / 2;
             }
         }
     }

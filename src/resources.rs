@@ -112,3 +112,6 @@ where
 }
 
 pub type LogEvents = MpscChannel<LogLine>;
+
+#[derive(Default)]
+pub struct Board(pub Option<Entity>);

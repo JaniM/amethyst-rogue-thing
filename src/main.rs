@@ -1,18 +1,17 @@
 extern crate amethyst;
-
 extern crate shred;
 #[macro_use]
 extern crate shred_derive;
-
 extern crate crossbeam_channel;
-
-extern crate termion;
+extern crate specs_hierarchy;
+extern crate easycurses;
 
 mod bundles;
 mod components;
 mod data;
 mod play;
 mod resources;
+mod specs_ext;
 mod systems;
 mod tui;
 

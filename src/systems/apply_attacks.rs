@@ -1,7 +1,8 @@
 use crate::{
-    components::{Dead, Health, Name, Stunned},
+    components::{Dead, Health, Named, Stunned},
     play::initialise_enemy,
     resources::{AttackActions, LogEvents},
+    specs_ext::SpecsExt,
     tui::TextBlock,
 };
 use amethyst::ecs::prelude::*;
@@ -16,7 +17,7 @@ pub struct SystemData<'s> {
     attacks: Write<'s, AttackActions>,
     lazy: Read<'s, LazyUpdate>,
     log: Read<'s, LogEvents>,
-    name: ReadStorage<'s, Name>,
+    name: ReadStorage<'s, Named>,
 }
 
 impl<'s> System<'s> for ApplyAttacksSystem {
@@ -34,33 +35,21 @@ impl<'s> System<'s> for ApplyAttacksSystem {
                     "{} (id {}) attacked {} (id {}): {} hp left",
                     data.name
                         .get(attack_event.attacker)
-                        .map(|x| x.0.as_str())
+                        .map(|x| &*x.name)
                         .unwrap_or("Unknown"),
                     attack_event.attacker.id(),
-                    data.name
-                        .get(target)
-                        .map(|x| x.0.as_str())
-                        .unwrap_or("Unknown"),
+                    data.name.get(target).map(|x| &*x.name).unwrap_or("Unknown"),
                     target.id(),
                     health.health
                 ));
 
-                if let Some(stun) = data.stun.get_mut(target) {
-                    stun.time += 1;
-                } else {
-                    data.stun
-                        .insert(target, Stunned::new(1))
-                        .expect("Adding Stun failed");
-                }
+                data.stun.get_mut_or_default(target).time += 1;
 
                 if health.health <= 0 {
                     data.dead.insert(target, Dead).ok();
                     data.log.send(format!(
                         "{} (id {}) died",
-                        data.name
-                            .get(target)
-                            .map(|x| x.0.as_str())
-                            .unwrap_or("Unknown"),
+                        data.name.get(target).map(|x| &*x.name).unwrap_or("Unknown"),
                         target.id(),
                     ));
                     data.lazy.exec_mut(move |world| {
