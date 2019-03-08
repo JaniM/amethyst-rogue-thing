@@ -23,7 +23,7 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
         let world = data.world;
         world.register::<Character>();
 
-        world.add_resource(WorldMap::new(10, 10));
+        world.add_resource(WorldMap::new(20, 20));
 
         let reader = WriteStorage::<WorldPosition>::fetch(&world.res).register_reader();
         world.add_resource(WorldPositionReader(reader));
@@ -46,17 +46,39 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
                 entity: board_container,
             })
             .with(Centered::new(true, true))
-            .with(TextBlock::new((0..10).map(|_| ".........."), 10, 10))
+            .with(TextBlock::new(
+                (0..20).map(|_| "...................."),
+                20,
+                20,
+            ))
             .build();
 
-        world.add_resource(Board(Some(board)));
-
-        world
+        let rhs = world
             .create_entity()
             .with(Parent { entity: stack })
             .with(StackingRule::new().max_width(80).min_width(50).flex(2))
+            .with(StackingContext::vertical())
+            .build();
+
+        world
+            .create_entity()
+            .with(Parent { entity: rhs })
+            .with(StackingRule::new().max_height(2))
+            .with(TextBlock::new(
+                vec!["| Hello world!", "+---------------"],
+                0,
+                0,
+            ))
+            .build();
+
+        world
+            .create_entity()
+            .with(Parent { entity: rhs })
+            .with(StackingRule::new())
             .with(LogDisplay)
             .build();
+
+        world.add_resource(Board(Some(board)));
 
         initialise_player(world);
         initialise_enemy(world);

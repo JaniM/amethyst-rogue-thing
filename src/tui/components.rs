@@ -64,6 +64,7 @@ pub struct TextBlock {
     pub height: i32,
 }
 
+#[allow(dead_code)]
 impl TextBlock {
     pub fn new<T, K>(rows: T, width: i32, height: i32) -> Self
     where

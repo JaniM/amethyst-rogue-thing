@@ -28,6 +28,7 @@ pub struct ScreenSize {
 pub struct TuiRenderSystem {
     easy: Rc<RefCell<EasyCurses>>,
     tui_reader: Option<ReaderId<TuiEvent>>,
+    backplane: Vec<String>,
 }
 
 impl TuiRenderSystem {
@@ -35,6 +36,7 @@ impl TuiRenderSystem {
         TuiRenderSystem {
             easy,
             tui_reader: None,
+            backplane: Vec::new(),
         }
     }
 }
@@ -42,24 +44,22 @@ impl TuiRenderSystem {
 #[derive(SystemData)]
 pub struct TuiRenderSD<'s> {
     position: ReadStorage<'s, Position>,
-    old_position: WriteStorage<'s, OldPosition>,
     global_position: WriteStorage<'s, GlobalPosition>,
     text_block: ReadStorage<'s, TextBlock>,
     parent: ReadStorage<'s, Parent>,
     parent_hierarchy: ReadExpect<'s, ParentHierarchy>,
-    entities: Entities<'s>,
     visible: ReadStorage<'s, Visible>,
     tui_channel: Read<'s, TuiChannel>,
+    screen_size: Read<'s, ScreenSize>,
 }
 
 impl<'s> System<'s> for TuiRenderSystem {
     type SystemData = TuiRenderSD<'s>;
 
     fn run(&mut self, mut data: Self::SystemData) {
-        let mut out = self.easy.borrow_mut();
+        let mut easy = self.easy.borrow_mut();
 
         let mut dirty_local = BitSet::new();
-        let mut dirty_global = BitSet::new();
 
         for event in data.tui_channel.read(self.tui_reader.as_mut().unwrap()) {
             use TuiEvent::*;
@@ -72,7 +72,14 @@ impl<'s> System<'s> for TuiRenderSystem {
                 GlobalPosition { .. } => {
                     continue;
                 }
-                ScreenSize { .. } => {
+                ScreenSize { new, .. } => {
+                    self.backplane = (0..new.height)
+                        .map(|_| " ".repeat(new.width as usize))
+                        .collect();
+                    for (i, row) in self.backplane.iter().enumerate() {
+                        easy.move_rc(i as i32, 0);
+                        easy.print(row);
+                    }
                     continue;
                 }
             };
@@ -83,97 +90,78 @@ impl<'s> System<'s> for TuiRenderSystem {
             return;
         }
 
-        for (entity, local, _dirty) in (&data.entities, &data.position, &dirty_local).join() {
-            let global = data.global_position.get_mut_or_default(entity);
-            // global.0 = *local;
-            dirty_global.add(entity.id());
-        }
-
         let mut invisible = BitSet::new();
 
+        let mut swap: Vec<String> = (0..data.screen_size.height)
+            .map(|_| " ".repeat(data.screen_size.width as usize))
+            .collect();
+
         for entity in data.parent_hierarchy.all() {
-            let self_dirty = dirty_local.contains(entity.id());
             if data.visible.get(*entity) == Some(&Visible(false)) {
                 invisible.add(entity.id());
+                continue;
             }
-            if let (Some(parent), Some(local)) =
-                (data.parent.get(*entity), data.position.get(*entity))
+
+            if let (Some(local), Some(text_block)) =
+                (data.position.get(*entity), data.text_block.get(*entity))
             {
-                if invisible.contains(parent.entity.id()) {
-                    invisible.add(entity.id());
-                }
-                let parent_dirty = dirty_global.contains(parent.entity.id());
-                if parent_dirty || self_dirty {
+                let mut global = local.global();
+                if let Some(parent) = data.parent.get(*entity) {
+                    if invisible.contains(parent.entity.id()) {
+                        invisible.add(entity.id());
+                        continue;
+                    }
                     let pos = if let Some(pg) = data.global_position.get(parent.entity) {
                         (pg.0 + local).global()
                     } else {
                         local.global()
                     };
 
-                    if let Some(global) = data.global_position.get_mut(*entity) {
-                        dirty_global.add(entity.id());
-                        dirty_global.add(parent.entity.id());
-                        for entity in data.parent_hierarchy.children(parent.entity) {
-                            dirty_global.add(entity.id());
-                        }
-                        *global = pos;
-                    }
+                    *data.global_position.get_mut_or_default(*entity) = pos;
+                    global = pos;
+                }
+
+                for (i, row) in text_block
+                    .rows
+                    .iter()
+                    .chain(["".to_owned()].iter().cycle())
+                    .enumerate()
+                    .take(text_block.height as usize)
+                {
+                    let y = i + global.0.y as usize;
+                    swap[y] = swap[y]
+                        .chars()
+                        .take(global.0.x as usize)
+                        .chain(
+                            // TODO: panics if block.width < row.len()
+                            row.chars().chain(
+                                " ".repeat(text_block.width as usize - row.len() as usize)
+                                    .chars(),
+                            ),
+                        )
+                        .chain(
+                            swap[y]
+                                .chars()
+                                .skip((global.0.x + text_block.width) as usize),
+                        )
+                        .take(swap[y].len())
+                        .collect();
                 }
             }
         }
 
-        let mut rendered = BitSet::new();
-
-        for (entity, _dirty) in (&data.entities, &dirty_global).join() {
-            if invisible.contains(entity.id()) {
-                rendered.add(entity.id());
-            }
-            if rendered.contains(entity.id()) {
-                continue;
-            }
-            let mut next_parent = Some(entity);
-            let mut parents = Vec::new();
-            while let Some(p_entity) = next_parent {
-                if !dirty_global.contains(p_entity.id()) {
-                    break;
-                }
-                next_parent = data.parent_hierarchy.parent(p_entity);
-                if rendered.contains(p_entity.id()) {
-                    continue;
-                }
-                if let Some(block) = data.text_block.get(p_entity) {
-                    rendered.add(p_entity.id());
-                    let pos = data.global_position.get_mut_or_default(p_entity);
-                    let old_pos = &mut data.old_position.get_mut_or_default(p_entity).0;
-                    parents.push(p_entity);
-                    if old_pos != pos {
-                        for i in 0..block.height {
-                            out.move_rc(old_pos.0.y + i as i32, old_pos.0.x);
-                            out.print(" ".repeat(block.width as usize));
-                        }
-                        *old_pos = pos.clone();
-                    }
-                }
-            }
-            parents.reverse();
-            let root = parents[0];
-            if data.text_block.contains(root) {
-                let mut max_width = data.text_block.get(root).unwrap().width;
-                let mut max_height = data.text_block.get(root).unwrap().height;
-                for p_entity in parents {
-                    let block = data.text_block.get(p_entity).unwrap();
-                    let pos = data.global_position.get(p_entity).unwrap().0;
-                    for (i, row) in block.rows.iter().enumerate().take(max_height as usize) {
-                        let short = row.chars().take(max_width as usize).collect::<String>();
-                        out.move_rc(pos.y + i as i32, pos.x);
-                        out.print(short);
-                    }
-                    max_width = block.width.min(max_width);
-                    max_height = block.height.min(max_height);
+        for y in 0..data.screen_size.height as usize {
+            for (x, (old, new)) in self.backplane[y].chars().zip(swap[y].chars()).enumerate() {
+                if old != new {
+                    easy.move_rc(y as i32, x as i32);
+                    easy.print_char(new);
                 }
             }
         }
-        out.refresh();
+
+        self.backplane = swap;
+
+        easy.refresh();
     }
 
     fn setup(&mut self, res: &mut Resources) {

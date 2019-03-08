@@ -1,4 +1,6 @@
-use super::{Parent, ParentHierarchy, Position, ScreenSize, TextBlock, TuiChannel, TuiEvent};
+use super::{
+    Parent, ParentHierarchy, Position, ScreenSize, TextBlock, TuiChannel, TuiEvent, Visible,
+};
 use crate::specs_ext::SpecsExt;
 use amethyst::ecs::{prelude::*, SystemData as _};
 use hibitset::BitSetLike;
@@ -98,6 +100,7 @@ pub struct SystemData<'s> {
     parent: ReadStorage<'s, Parent>,
     parent_hierarchy: ReadExpect<'s, ParentHierarchy>,
     log: Read<'s, LogEvents>,
+    visible: ReadStorage<'s, Visible>,
 }
 
 impl<'s> System<'s> for StackingSystem {
@@ -105,6 +108,7 @@ impl<'s> System<'s> for StackingSystem {
 
     fn run(&mut self, mut data: Self::SystemData) {
         let mut dirty_contexts = BitSet::new();
+        let mut dirty_entities = BitSet::new();
 
         for event in data.tui_channel.read(self.tui_reader.as_mut().unwrap()) {
             match event {
@@ -115,7 +119,20 @@ impl<'s> System<'s> for StackingSystem {
                         }
                     }
                 }
+                TuiEvent::Visible { entity, .. } => {
+                    dirty_entities.add(entity.id());
+                }
                 _ => {}
+            }
+        }
+
+        if dirty_contexts.is_empty() && dirty_entities.is_empty() {
+            return;
+        }
+
+        for (parent, _dirty) in (&data.parent, &dirty_entities).join() {
+            if data.stacking_context.contains(parent.entity) {
+                dirty_contexts.add(parent.entity.id());
             }
         }
 
@@ -153,7 +170,10 @@ impl<'s> System<'s> for StackingSystem {
                 .parent_hierarchy
                 .children(entity)
                 .iter()
-                .filter(|x| data.stacking_rule.contains(**x))
+                .filter(|x| {
+                    data.stacking_rule.contains(**x)
+                        && data.visible.get(**x).map(|v| v.0).unwrap_or(true)
+                })
                 .cloned()
                 .map(|x| Resolved {
                     entity: x,
@@ -162,7 +182,11 @@ impl<'s> System<'s> for StackingSystem {
                 })
                 .collect::<Vec<_>>();
 
-            data.log.send(format!("Stacking children: {:?}", children));
+            for child in &children {
+                if data.stacking_context.contains(child.entity) {
+                    dirty_contexts.add(child.entity.id());
+                }
+            }
 
             let (total_width, total_height) = {
                 let block = data

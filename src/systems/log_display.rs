@@ -30,9 +30,10 @@ impl<'s> System<'s> for LogDisplaySystem {
 
         if dirty {
             for (block, _) in (&mut data.text_block, &data.log_display).join() {
-                block.rows = [format!("({}, {})", block.width, block.height)]
+                block.rows = data
+                    .log
+                    .events
                     .iter()
-                    .chain(data.log.events.iter())
                     .chain(["".to_owned()].into_iter().cycle())
                     .map(|x| {
                         ("| ".to_owned() + x)
