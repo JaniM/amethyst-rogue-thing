@@ -1,15 +1,16 @@
-use amethyst::{
-    core::transform::{Parent, ParentHierarchy},
-    ecs::prelude::*,
-};
+use amethyst::ecs::prelude::*;
 
 use std::{cell::RefCell, rc::Rc};
 
 pub use super::blink::BlinkSystem;
 pub use super::{components::*, TuiChannel, TuiEvent};
+pub use amethyst::core::transform::{Parent, ParentHierarchy};
+
 use crate::specs_ext::SpecsExt;
 
 use easycurses::*;
+
+use hibitset::BitSetLike;
 
 #[derive(Default)]
 pub struct OldPosition(GlobalPosition);
@@ -78,9 +79,13 @@ impl<'s> System<'s> for TuiRenderSystem {
             dirty_local.add(entity.id());
         }
 
+        if dirty_local.is_empty() {
+            return;
+        }
+
         for (entity, local, _dirty) in (&data.entities, &data.position, &dirty_local).join() {
             let global = data.global_position.get_mut_or_default(entity);
-            global.0 = *local;
+            // global.0 = *local;
             dirty_global.add(entity.id());
         }
 
@@ -148,25 +153,24 @@ impl<'s> System<'s> for TuiRenderSystem {
                         }
                         *old_pos = pos.clone();
                     }
-                    for i in 0..block.height {
-                        out.move_rc(pos.0.y + i as i32, pos.0.x);
-                        out.print(" ".repeat(block.width as usize));
-                    }
                 }
             }
             parents.reverse();
-            let mut max_width = data.text_block.get(parents[0]).unwrap().width;
-            let mut max_height = data.text_block.get(parents[0]).unwrap().height;
-            for p_entity in parents {
-                let block = data.text_block.get(p_entity).unwrap();
-                let pos = data.global_position.get(p_entity).unwrap().0;
-                for (i, row) in block.rows.iter().enumerate().take(max_height as usize) {
-                    let short = row.chars().take(max_width as usize).collect::<String>();
-                    out.move_rc(pos.y + i as i32, pos.x);
-                    out.print(short);
+            let root = parents[0];
+            if data.text_block.contains(root) {
+                let mut max_width = data.text_block.get(root).unwrap().width;
+                let mut max_height = data.text_block.get(root).unwrap().height;
+                for p_entity in parents {
+                    let block = data.text_block.get(p_entity).unwrap();
+                    let pos = data.global_position.get(p_entity).unwrap().0;
+                    for (i, row) in block.rows.iter().enumerate().take(max_height as usize) {
+                        let short = row.chars().take(max_width as usize).collect::<String>();
+                        out.move_rc(pos.y + i as i32, pos.x);
+                        out.print(short);
+                    }
+                    max_width = block.width.min(max_width);
+                    max_height = block.height.min(max_height);
                 }
-                max_width = block.width.min(max_width);
-                max_height = block.height.min(max_height);
             }
         }
         out.refresh();

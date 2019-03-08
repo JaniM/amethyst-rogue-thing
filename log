@@ -1,3 +1,2 @@
-   Compiling rogue v0.1.0 (/home/jani/fun/rogue)
-    Finished dev [unoptimized + debuginfo] target(s) in 5.53s
+    Finished dev [unoptimized + debuginfo] target(s) in 0.19s
      Running `target/debug/rogue`

@@ -4,7 +4,17 @@ use amethyst::{
     prelude::*,
 };
 
-use crate::{components::*, data::PlayerAction, resources::*, tui::components::*, CustomGameData};
+use crate::{
+    components::*,
+    data::PlayerAction,
+    resources::*,
+    tui::{
+        centering::Centered,
+        components::*,
+        stacking::{StackingContext, StackingRule},
+    },
+    CustomGameData,
+};
 
 pub struct PlayState;
 
@@ -18,19 +28,33 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
         let reader = WriteStorage::<WorldPosition>::fetch(&world.res).register_reader();
         world.add_resource(WorldPositionReader(reader));
 
+        let stack = world
+            .create_entity()
+            .with(StackingContext::horizontal())
+            .with(Position::new(0, 0))
+            .build();
+
+        let board_container = world
+            .create_entity()
+            .with(Parent { entity: stack })
+            .with(StackingRule::new().min_width(15).min_height(15))
+            .build();
+
         let board = world
             .create_entity()
-            .with(Position::new(2, 1))
+            .with(Parent {
+                entity: board_container,
+            })
+            .with(Centered::new(true, true))
             .with(TextBlock::new((0..10).map(|_| ".........."), 10, 10))
-            .with(BoardDisplay)
             .build();
 
         world.add_resource(Board(Some(board)));
 
         world
             .create_entity()
-            .with(Position::new(16, 1))
-            .with(TextBlock::empty(50, 10))
+            .with(Parent { entity: stack })
+            .with(StackingRule::new().max_width(80).min_width(50).flex(2))
             .with(LogDisplay)
             .build();
 

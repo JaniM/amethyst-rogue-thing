@@ -1,22 +1,29 @@
 pub mod blink;
+pub mod centering;
 pub mod components;
 pub mod event;
 pub mod input;
 pub mod render;
+pub mod stacking;
 
 pub use self::{
     components::*,
-    event::{TuiChannel, TuiEvent, TuiEventSystem},
-    input::{Key, TuiInputSystem},
-    render::{BlinkSystem, ScreenSize, TuiRenderSystem},
+    event::{TuiChannel, TuiEvent},
+    input::Key,
+    render::{Parent, ParentHierarchy, ScreenSize},
+};
+
+use self::{
+    centering::CenteringSystem,
+    event::TuiEventSystem,
+    input::TuiInputSystem,
+    render::{BlinkSystem, TuiRenderSystem},
+    stacking::StackingSystem,
 };
 
 use std::{cell::RefCell, rc::Rc};
 
-use amethyst::{
-    core::{Parent, SystemBundle},
-    ecs::DispatcherBuilder,
-};
+use amethyst::{core::SystemBundle, ecs::DispatcherBuilder};
 use easycurses::EasyCurses;
 use specs_hierarchy::HierarchySystem;
 
@@ -45,7 +52,21 @@ impl<'a, 'b, 'c> SystemBundle<'a, 'b> for TuiBundle<'c> {
             "parent_hierarchy_system",
             self.dep,
         );
-        builder.add(TuiEventSystem::new(), "tui_event_system", self.dep);
+        builder.add(
+            TuiEventSystem::new(),
+            "tui_event_system",
+            &["parent_hierarchy_system"],
+        );
+        builder.add(
+            StackingSystem::default(),
+            "tui_stacking_system",
+            &["tui_event_system"],
+        );
+        builder.add(
+            CenteringSystem::default(),
+            "tui_centering_system",
+            &["tui_event_system"],
+        );
         builder.add(BlinkSystem::new(), "blink_system", self.dep);
         builder.add_thread_local(TuiRenderSystem::new(easy.clone()));
         builder.add_thread_local(TuiInputSystem::new(easy));

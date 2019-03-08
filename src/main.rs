@@ -3,8 +3,9 @@ extern crate shred;
 #[macro_use]
 extern crate shred_derive;
 extern crate crossbeam_channel;
-extern crate specs_hierarchy;
 extern crate easycurses;
+extern crate hibitset;
+extern crate specs_hierarchy;
 
 mod bundles;
 mod components;
