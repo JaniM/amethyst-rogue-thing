@@ -1,5 +1,5 @@
 use crate::{
-    components::WorldPosition,
+    components::{PlayerControlledCharacter, WorldPosition},
     resources::{LogEvents, MovementActions, WorldMap, WorldPositionReader},
     tui::Position,
 };
@@ -16,6 +16,7 @@ pub struct SystemData<'s> {
     reader: WriteExpect<'s, WorldPositionReader>,
     screenpos: WriteStorage<'s, Position>,
     log: Read<'s, LogEvents>,
+    player: ReadStorage<'s, PlayerControlledCharacter>,
 }
 
 impl<'s> System<'s> for ApplyMovementSystem {
@@ -30,11 +31,20 @@ impl<'s> System<'s> for ApplyMovementSystem {
             if !map.is_legal_pos(wp) {
                 *wp = oldpos;
                 data.log.send("Movement out of bounds");
-            } else if map.tiles[wp.y as usize][wp.x as usize].is_some() {
+            } else if map.read(wp).is_some() {
                 *wp = oldpos;
                 data.log.send("Movement blocked");
             } else {
-                map.tiles[oldpos.y as usize][oldpos.x as usize] = None;
+                map.tiles[oldpos.y as usize][oldpos.x as usize].character = None;
+            }
+
+            if data.player.contains(entity) {
+                if let Some(tile) = map.get(wp) {
+                    for item in &tile.items {
+                        data.log
+                            .send(format!("You see a {}", item.item.description()));
+                    }
+                }
             }
         }
 
@@ -61,7 +71,7 @@ impl<'s> System<'s> for ApplyMovementSystem {
             )
                 .join()
             {
-                map.tiles[wp.y as usize][wp.x as usize] = Some(entity);
+                map.tiles[wp.y as usize][wp.x as usize].character = Some(entity);
                 if let Some(pos) = pos {
                     pos.x = wp.x;
                     pos.y = wp.y;
@@ -76,7 +86,7 @@ impl<'s> System<'s> for ApplyMovementSystem {
             )
                 .join()
             {
-                map.tiles[wp.y as usize][wp.x as usize] = Some(entity);
+                map.tiles[wp.y as usize][wp.x as usize].character = Some(entity);
                 if let Some(pos) = pos {
                     pos.x = wp.x;
                     pos.y = wp.y;

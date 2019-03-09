@@ -1,6 +1,6 @@
 use amethyst::ecs::{Component, DenseVecStorage, Entity, FlaggedStorage, NullStorage};
 
-use crate::data::Direction;
+use crate::data::{Direction, Item};
 
 pub use amethyst::core::Named;
 
@@ -141,8 +141,30 @@ impl Component for LogDisplay {
 }
 
 #[derive(Default)]
+pub struct InventoryDisplay;
+
+impl Component for InventoryDisplay {
+    type Storage = NullStorage<Self>;
+}
+
+#[derive(Default)]
 pub struct BoardDisplay;
 
 impl Component for BoardDisplay {
     type Storage = NullStorage<Self>;
+}
+
+#[derive(Default)]
+pub struct Inventory {
+    pub items: Vec<Item>,
+}
+
+impl Inventory {
+    pub fn new(items: Vec<Item>) -> Self {
+        Inventory { items }
+    }
+}
+
+impl Component for Inventory {
+    type Storage = FlaggedStorage<Self, DenseVecStorage<Self>>;
 }

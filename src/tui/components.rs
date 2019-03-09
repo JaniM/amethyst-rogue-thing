@@ -133,3 +133,16 @@ impl Default for Visible {
 impl Component for Visible {
     type Storage = FlaggedStorage<Self, DenseVecStorage<Self>>;
 }
+
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub struct ZLevel(pub i32);
+
+impl ZLevel {
+    pub fn new(level: i32) -> Self {
+        ZLevel(level)
+    }
+}
+
+impl Component for ZLevel {
+    type Storage = FlaggedStorage<Self, DenseVecStorage<Self>>;
+}

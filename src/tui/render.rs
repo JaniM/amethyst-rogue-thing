@@ -51,6 +51,7 @@ pub struct TuiRenderSD<'s> {
     visible: ReadStorage<'s, Visible>,
     tui_channel: Read<'s, TuiChannel>,
     screen_size: Read<'s, ScreenSize>,
+    zlevel: ReadStorage<'s, ZLevel>,
 }
 
 impl<'s> System<'s> for TuiRenderSystem {
@@ -69,6 +70,7 @@ impl<'s> System<'s> for TuiRenderSystem {
                 Visible { entity, .. } => entity,
                 HierarchyModified(entity) => entity,
                 HierarchyRemoved(entity) => entity,
+                ZLevel { entity, .. } => entity,
                 GlobalPosition { .. } => {
                     continue;
                 }
@@ -92,8 +94,13 @@ impl<'s> System<'s> for TuiRenderSystem {
 
         let mut invisible = BitSet::new();
 
-        let mut swap: Vec<String> = (0..data.screen_size.height)
-            .map(|_| " ".repeat(data.screen_size.width as usize))
+        let mut swap: Vec<Vec<(i32, char)>> = (0..data.screen_size.height)
+            .map(|_| {
+                " ".repeat(data.screen_size.width as usize)
+                    .chars()
+                    .map(|x| (-100, x))
+                    .collect()
+            })
             .collect();
 
         for entity in data.parent_hierarchy.all() {
@@ -121,6 +128,8 @@ impl<'s> System<'s> for TuiRenderSystem {
                     global = pos;
                 }
 
+                let zlevel = data.zlevel.get(*entity).map(|x| x.0).unwrap_or(0);
+
                 for (i, row) in text_block
                     .rows
                     .iter()
@@ -129,20 +138,28 @@ impl<'s> System<'s> for TuiRenderSystem {
                     .take(text_block.height as usize)
                 {
                     let y = i + global.0.y as usize;
+                    let extra_width = i32::max(text_block.width - row.len() as i32, 0) as usize;
                     swap[y] = swap[y]
-                        .chars()
+                        .iter()
                         .take(global.0.x as usize)
+                        .cloned()
                         .chain(
-                            // TODO: panics if block.width < row.len()
-                            row.chars().chain(
-                                " ".repeat(text_block.width as usize - row.len() as usize)
-                                    .chars(),
-                            ),
+                            row.chars()
+                                .chain(" ".repeat(extra_width).chars())
+                                .map(|x| (zlevel, x))
+                                .zip(
+                                    swap[y]
+                                        .iter()
+                                        .skip(global.0.x as usize)
+                                        .take(text_block.width as usize),
+                                )
+                                .map(|(new, old)| if new.0 >= old.0 { new } else { *old }),
                         )
                         .chain(
                             swap[y]
-                                .chars()
-                                .skip((global.0.x + text_block.width) as usize),
+                                .iter()
+                                .skip((global.0.x + text_block.width) as usize)
+                                .cloned(),
                         )
                         .take(swap[y].len())
                         .collect();
@@ -151,7 +168,11 @@ impl<'s> System<'s> for TuiRenderSystem {
         }
 
         for y in 0..data.screen_size.height as usize {
-            for (x, (old, new)) in self.backplane[y].chars().zip(swap[y].chars()).enumerate() {
+            for (x, (old, new)) in self.backplane[y]
+                .chars()
+                .zip(swap[y].iter().map(|x| x.1))
+                .enumerate()
+            {
                 if old != new {
                     easy.move_rc(y as i32, x as i32);
                     easy.print_char(new);
@@ -159,7 +180,10 @@ impl<'s> System<'s> for TuiRenderSystem {
             }
         }
 
-        self.backplane = swap;
+        self.backplane = swap
+            .into_iter()
+            .map(|x| x.into_iter().map(|x| x.1).collect())
+            .collect();
 
         easy.refresh();
     }

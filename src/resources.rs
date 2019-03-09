@@ -3,7 +3,7 @@ use crossbeam_channel as channel;
 
 use crate::{
     components::WorldPosition,
-    data::{Attack, Direction, PlayerAction},
+    data::{Attack, Direction, Item, PlayerAction},
 };
 
 #[derive(Default, Debug, Clone)]
@@ -52,11 +52,23 @@ pub type AttackActions = MpscChannel<Attack>;
 #[derive(Default, Debug, Clone)]
 pub struct PlayerEntity(pub Option<Entity>);
 
+#[derive(Debug, Clone)]
+pub struct WorldItem {
+    pub entity: Entity,
+    pub item: Item,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct WorldTile {
+    pub character: Option<Entity>,
+    pub items: Vec<WorldItem>,
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct WorldMap {
     pub width: usize,
     pub height: usize,
-    pub tiles: Vec<Vec<Option<Entity>>>,
+    pub tiles: Vec<Vec<WorldTile>>,
 }
 
 impl WorldMap {
@@ -67,7 +79,12 @@ impl WorldMap {
             height,
             tiles: (0..height)
                 .into_iter()
-                .map(|_| (0..width).into_iter().map(|_| None).collect())
+                .map(|_| {
+                    (0..width)
+                        .into_iter()
+                        .map(|_| WorldTile::default())
+                        .collect()
+                })
                 .collect(),
         }
     }
@@ -75,14 +92,30 @@ impl WorldMap {
     pub fn clear(&mut self) {
         for y in 0..self.height {
             for x in 0..self.width {
-                self.tiles[y][x] = None;
+                self.tiles[y][x].character = None;
             }
         }
     }
 
     pub fn read(&self, pos: &WorldPosition) -> Option<Entity> {
         if self.is_legal_pos(pos) {
-            self.tiles[pos.y as usize][pos.x as usize]
+            self.tiles[pos.y as usize][pos.x as usize].character
+        } else {
+            None
+        }
+    }
+
+    pub fn get(&mut self, pos: &WorldPosition) -> Option<&WorldTile> {
+        if self.is_legal_pos(pos) {
+            Some(&self.tiles[pos.y as usize][pos.x as usize])
+        } else {
+            None
+        }
+    }
+
+    pub fn get_mut(&mut self, pos: &WorldPosition) -> Option<&mut WorldTile> {
+        if self.is_legal_pos(pos) {
+            Some(&mut self.tiles[pos.y as usize][pos.x as usize])
         } else {
             None
         }

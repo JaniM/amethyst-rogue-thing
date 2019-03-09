@@ -1,9 +1,8 @@
 use crate::{
-    components::{Dead, Health, Named, Stunned},
-    play::initialise_enemy,
-    resources::{AttackActions, LogEvents},
+    components::{Dead, Health, Inventory, Named, Stunned, WorldPosition},
+    play::initialise_item,
+    resources::{AttackActions, Board, LogEvents, WorldItem, WorldMap},
     specs_ext::SpecsExt,
-    tui::TextBlock,
 };
 use amethyst::ecs::prelude::*;
 
@@ -18,6 +17,11 @@ pub struct SystemData<'s> {
     lazy: Read<'s, LazyUpdate>,
     log: Read<'s, LogEvents>,
     name: ReadStorage<'s, Named>,
+    world_map: Write<'s, WorldMap>,
+    inventory: ReadStorage<'s, Inventory>,
+    position: ReadStorage<'s, WorldPosition>,
+    board: Read<'s, Board>,
+    entities: Entities<'s>,
 }
 
 impl<'s> System<'s> for ApplyAttacksSystem {
@@ -47,17 +51,47 @@ impl<'s> System<'s> for ApplyAttacksSystem {
 
                 if health.health <= 0 {
                     data.dead.insert(target, Dead).ok();
+                    let position = data.position.get(target).unwrap();
+                    let tile = data.world_map.get_mut(position).unwrap();
+                    let mut itemc = 0;
+                    tile.character = None;
+                    if let Some(inventory) = data.inventory.get(target) {
+                        let (entities, lazy, board) = (&data.entities, &data.lazy, &data.board);
+                        let mut items = inventory
+                            .items
+                            .iter()
+                            .map(|item| WorldItem {
+                                entity: initialise_item(
+                                    lazy.create_entity(entities),
+                                    board.0.unwrap(),
+                                    *position,
+                                )
+                                .build(),
+                                item: item.clone(),
+                            })
+                            .collect::<Vec<_>>();
+                        itemc = items.len();
+                        tile.items.append(&mut items)
+                    }
+                    data.entities.delete(target).ok();
                     data.log.send(format!(
-                        "{} (id {}) died",
+                        "{} (id {}) died{}",
                         data.name.get(target).map(|x| &*x.name).unwrap_or("Unknown"),
                         target.id(),
-                    ));
-                    data.lazy.exec_mut(move |world| {
-                        initialise_enemy(world);
-                        if let Some(mat) = world.write_storage::<TextBlock>().get_mut(target) {
-                            mat.rows[0] = "x".to_owned();
+                        if itemc == 0 {
+                            "".to_owned()
+                        } else if itemc == 1 {
+                            " and dropped 1 item".to_owned()
+                        } else {
+                            format!(" and dropped {} items", itemc)
                         }
-                    })
+                    ));
+                    // data.lazy.exec_mut(move |world| {
+                    //     initialise_enemy(world);
+                    //     if let Some(mat) = world.write_storage::<TextBlock>().get_mut(target) {
+                    //         mat.rows[0] = "x".to_owned();
+                    //     }
+                    // })
                 }
             } else {
                 data.log.send("Attacked an entity without Health");

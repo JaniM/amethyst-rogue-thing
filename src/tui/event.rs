@@ -27,6 +27,11 @@ pub enum TuiEvent {
         new_size: Option<Position>,
         old_size: Option<Position>,
     },
+    ZLevel {
+        entity: Entity,
+        new: Option<i32>,
+        old: Option<i32>,
+    },
     Visible {
         entity: Entity,
         new: Option<bool>,
@@ -48,6 +53,7 @@ pub struct TuiStatus {
     global_position: Option<Position>,
     text_block: Option<Position>,
     visible: Option<bool>,
+    zlevel: Option<i32>,
 }
 
 impl Component for TuiStatus {
@@ -61,6 +67,7 @@ pub struct TuiEventSystem {
     textblock_reader: Option<ReaderId<ComponentEvent>>,
     parent_reader: Option<ReaderId<HierarchyEvent>>,
     visible_reader: Option<ReaderId<ComponentEvent>>,
+    zlevel_reader: Option<ReaderId<ComponentEvent>>,
 
     screen_size: ScreenSize,
 }
@@ -82,6 +89,7 @@ pub struct TuiEventSD<'s> {
     tui_status: WriteStorage<'s, TuiStatus>,
     events: Write<'s, TuiChannel>,
     screen_size: Read<'s, ScreenSize>,
+    zlevel: ReadStorage<'s, ZLevel>,
 }
 
 impl<'s> System<'s> for TuiEventSystem {
@@ -163,6 +171,22 @@ impl<'s> System<'s> for TuiEventSystem {
             }
         }
 
+        dirty.clear();
+        read_events_to_bitset(data.zlevel.channel(), &mut self.zlevel_reader, &mut dirty);
+
+        for (zlevel, entity, _id) in (data.zlevel.maybe(), &data.entities, &dirty).join() {
+            let tui_status = data.tui_status.get_mut_or_default(entity);
+            let zlevel = zlevel.map(|x| x.0);
+            if zlevel != tui_status.zlevel {
+                data.events.single_write(TuiEvent::ZLevel {
+                    entity,
+                    new: zlevel,
+                    old: tui_status.zlevel,
+                });
+                tui_status.zlevel = zlevel;
+            }
+        }
+
         for event in data
             .parent_hierarchy
             .changed()
@@ -192,6 +216,7 @@ impl<'s> System<'s> for TuiEventSystem {
             Some(WriteStorage::<GlobalPosition>::fetch(&res).register_reader());
         self.textblock_reader = Some(WriteStorage::<TextBlock>::fetch(&res).register_reader());
         self.visible_reader = Some(WriteStorage::<Visible>::fetch(&res).register_reader());
+        self.zlevel_reader = Some(WriteStorage::<ZLevel>::fetch(&res).register_reader());
         self.parent_reader = Some(res.fetch_mut::<ParentHierarchy>().track());
     }
 }

@@ -16,6 +16,7 @@ impl<'a, 'b> SystemBundle<'a, 'b> for LiveBundle {
             &[],
         );
         builder.add(LogDisplaySystem::default(), "log_display", &[]);
+        builder.add(InventoryDisplaySystem::default(), "inventory_display", &[]);
         Ok(())
     }
 }

@@ -1,12 +1,12 @@
 use amethyst::{
     core::transform::Parent,
-    ecs::{SystemData, WriteStorage},
+    ecs::{Entity, SystemData, WriteStorage},
     prelude::*,
 };
 
 use crate::{
     components::*,
-    data::PlayerAction,
+    data::*,
     resources::*,
     tui::{
         centering::Centered,
@@ -46,11 +46,7 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
                 entity: board_container,
             })
             .with(Centered::new(true, true))
-            .with(TextBlock::new(
-                (0..20).map(|_| "...................."),
-                20,
-                20,
-            ))
+            .with(TextBlock::new((0..10).map(|_| ".".repeat(10)), 10, 10))
             .build();
 
         let rhs = world
@@ -63,12 +59,15 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
         world
             .create_entity()
             .with(Parent { entity: rhs })
-            .with(StackingRule::new().max_height(2))
-            .with(TextBlock::new(
-                vec!["| Hello world!", "+---------------"],
-                0,
-                0,
-            ))
+            .with(StackingRule::new())
+            .with(InventoryDisplay)
+            .build();
+
+        world
+            .create_entity()
+            .with(Parent { entity: rhs })
+            .with(StackingRule::new().max_height(1))
+            .with(TextBlock::single_row("+".to_owned() + &"-".repeat(1000)))
             .build();
 
         world
@@ -124,6 +123,11 @@ fn initialise_player(world: &mut World) {
         .with(TextBlock::single_row("@"))
         .with(Named::new("Player"))
         .with(Blink::new(0.5))
+        .with(ZLevel::new(1))
+        .with(Inventory::new(vec![Item::Weapon(Weapon {
+            name: "Test weapon".to_owned(),
+            damage: -1,
+        })]))
         .build();
 
     world.add_resource(PlayerEntity(Some(entity)));
@@ -141,6 +145,18 @@ pub fn initialise_enemy(world: &mut World) {
         .with(Health::new(5))
         .with(Position::default())
         .with(TextBlock::single_row("c"))
+        .with(Inventory::new(vec![Item::Weapon(Weapon {
+            name: "Wooden nail".to_owned(),
+            damage: 2,
+        })]))
         .with(Named::new("Enemy"))
         .build();
+}
+
+pub fn initialise_item<T: Builder>(builder: T, board: Entity, position: WorldPosition) -> T {
+    builder
+        .with(position)
+        .with(Parent { entity: board })
+        .with(Position::new(position.x, position.y))
+        .with(TextBlock::single_row("*"))
 }

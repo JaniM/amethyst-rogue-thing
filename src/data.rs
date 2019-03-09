@@ -1,4 +1,8 @@
 use amethyst::ecs::Entity;
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Direction {
@@ -19,4 +23,35 @@ pub enum PlayerAction {
 pub struct Attack {
     pub attacker: Entity,
     pub target: Entity,
+}
+
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct Weapon {
+    pub name: String,
+    pub damage: i32,
+}
+
+impl Weapon {
+    pub fn description(&self) -> String {
+        format!("{} (ATK {})", self.name, self.damage)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Item {
+    Weapon(Weapon),
+}
+
+impl Item {
+    pub fn description(&self) -> String {
+        match self {
+            Item::Weapon(wep) => format!("Weapon: {}", wep.description()),
+        }
+    }
+}
+
+pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
 }
