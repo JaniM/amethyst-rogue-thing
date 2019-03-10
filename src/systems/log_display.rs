@@ -42,7 +42,7 @@ impl<'s> System<'s> for LogDisplaySystem {
                             .take(block.width as usize - 1)
                             .collect()
                     })
-                    .take(block.height as usize)
+                    .take(block.height as usize + 50)
                     .collect();
             }
         }

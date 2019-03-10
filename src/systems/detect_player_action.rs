@@ -1,6 +1,7 @@
 use crate::{
+    components::{Inventory, PlayerControlledCharacter, WorldPosition},
     data::{Direction, PlayerAction},
-    resources::{LogEvents, PlayerActionResource},
+    resources::{LogEvents, PlayerActionResource, WorldMap},
     tui::Key,
 };
 use amethyst::{
@@ -19,6 +20,11 @@ pub struct SystemData<'s> {
     action: Write<'s, PlayerActionResource>,
     time: Read<'s, Time>,
     log: Read<'s, LogEvents>,
+    player: ReadStorage<'s, PlayerControlledCharacter>,
+    inventory: WriteStorage<'s, Inventory>,
+    position: ReadStorage<'s, WorldPosition>,
+    world_map: Write<'s, WorldMap>,
+    entities: Entities<'s>,
 }
 
 impl<'s> System<'s> for DetectPlayerActionSystem {
@@ -37,10 +43,28 @@ impl<'s> System<'s> for DetectPlayerActionSystem {
                 Key::Character('a') => action = Some(PlayerAction::Move(Left)),
                 Key::Character('d') => action = Some(PlayerAction::Move(Right)),
                 Key::Character('x') => action = Some(PlayerAction::Wait),
+                Key::Character('g') => action = Some(PlayerAction::Grab),
                 x => {
                     data.log.send(format!("Unrecognized input: {:?}", x));
                 }
             }
+        }
+
+        if action == Some(PlayerAction::Grab) {
+            for (position, inventory, _player) in
+                (&data.position, &mut data.inventory, &data.player).join()
+            {
+                if let Some(tile) = data.world_map.get_mut(position) {
+                    if tile.items.len() > 0 {
+                        let item = tile.items.remove(0);
+                        data.entities.delete(item.entity).ok();
+                        data.log
+                            .send(format!("Grabbed {}", item.item.description()));
+                        inventory.items.push(item.item);
+                    }
+                }
+            }
+            action = None;
         }
 
         data.action.hold_delay -= data.time.delta_seconds();

@@ -1,8 +1,4 @@
-use amethyst::{
-    core::transform::Parent,
-    ecs::{Entity, SystemData, WriteStorage},
-    prelude::*,
-};
+use amethyst::{core::transform::Parent, ecs::Entity, prelude::*};
 
 use crate::{
     components::*,
@@ -24,9 +20,6 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
         world.register::<Character>();
 
         world.add_resource(WorldMap::new(20, 20));
-
-        let reader = WriteStorage::<WorldPosition>::fetch(&world.res).register_reader();
-        world.add_resource(WorldPositionReader(reader));
 
         let stack = world
             .create_entity()
@@ -60,7 +53,21 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
             .create_entity()
             .with(Parent { entity: rhs })
             .with(StackingRule::new())
-            .with(InventoryDisplay)
+            .with(InventoryDisplay::new(InventoryDisplayKind::Own))
+            .build();
+
+        let ground = world
+            .create_entity()
+            .with(Parent { entity: rhs })
+            .with(StackingRule::new())
+            .with(InventoryDisplay::new(InventoryDisplayKind::Ground))
+            .build();
+
+        world
+            .create_entity()
+            .with(Parent { entity: ground })
+            .with(Position::new(0, -1))
+            .with(TextBlock::single_row("+".to_owned() + &"-".repeat(1000)))
             .build();
 
         world
@@ -145,6 +152,7 @@ pub fn initialise_enemy(world: &mut World) {
         .with(Health::new(5))
         .with(Position::default())
         .with(TextBlock::single_row("c"))
+        .with(ZLevel::new(1))
         .with(Inventory::new(vec![Item::Weapon(Weapon {
             name: "Wooden nail".to_owned(),
             damage: 2,
@@ -153,10 +161,16 @@ pub fn initialise_enemy(world: &mut World) {
         .build();
 }
 
-pub fn initialise_item<T: Builder>(builder: T, board: Entity, position: WorldPosition) -> T {
+pub fn initialise_item<T: Builder>(
+    builder: T,
+    board: Entity,
+    position: WorldPosition,
+    item: Item,
+) -> T {
     builder
         .with(position)
         .with(Parent { entity: board })
         .with(Position::new(position.x, position.y))
         .with(TextBlock::single_row("*"))
+        .with(item)
 }

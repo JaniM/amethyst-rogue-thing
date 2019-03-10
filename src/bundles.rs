@@ -17,6 +17,11 @@ impl<'a, 'b> SystemBundle<'a, 'b> for LiveBundle {
         );
         builder.add(LogDisplaySystem::default(), "log_display", &[]);
         builder.add(InventoryDisplaySystem::default(), "inventory_display", &[]);
+        builder.add(
+            ApplyBoardPositionSystem::default(),
+            "apply_board_position",
+            &[],
+        );
         Ok(())
     }
 }
@@ -36,6 +41,11 @@ impl<'a, 'b> SystemBundle<'a, 'b> for TickBundle {
         );
         builder.add(ApplyAttacksSystem, "apply_attacks_2", &["ai_movement"]);
         builder.add(ApplyMovementSystem, "apply_movement_2", &["ai_movement"]);
+        builder.add(
+            ApplyWorldMapSystem::default(),
+            "apply_worldmap",
+            &["apply_attacks_2", "apply_movement_2"],
+        );
         builder.add(StunSystem, "stun_system", &["apply_attacks_2"]);
         Ok(())
     }

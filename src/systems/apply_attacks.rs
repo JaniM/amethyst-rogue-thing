@@ -1,7 +1,7 @@
 use crate::{
     components::{Dead, Health, Inventory, Named, Stunned, WorldPosition},
     play::initialise_item,
-    resources::{AttackActions, Board, LogEvents, WorldItem, WorldMap},
+    resources::{AttackActions, Board, LogEvents, WorldMap},
     specs_ext::SpecsExt,
 };
 use amethyst::ecs::prelude::*;
@@ -57,21 +57,16 @@ impl<'s> System<'s> for ApplyAttacksSystem {
                     tile.character = None;
                     if let Some(inventory) = data.inventory.get(target) {
                         let (entities, lazy, board) = (&data.entities, &data.lazy, &data.board);
-                        let mut items = inventory
-                            .items
-                            .iter()
-                            .map(|item| WorldItem {
-                                entity: initialise_item(
-                                    lazy.create_entity(entities),
-                                    board.0.unwrap(),
-                                    *position,
-                                )
-                                .build(),
-                                item: item.clone(),
-                            })
-                            .collect::<Vec<_>>();
-                        itemc = items.len();
-                        tile.items.append(&mut items)
+                        inventory.items.iter().for_each(|item| {
+                            initialise_item(
+                                lazy.create_entity(entities),
+                                board.0.unwrap(),
+                                *position,
+                                item.clone(),
+                            )
+                            .build();
+                        });
+                        itemc = inventory.items.len();
                     }
                     data.entities.delete(target).ok();
                     data.log.send(format!(
@@ -86,12 +81,9 @@ impl<'s> System<'s> for ApplyAttacksSystem {
                             format!(" and dropped {} items", itemc)
                         }
                     ));
-                    // data.lazy.exec_mut(move |world| {
-                    //     initialise_enemy(world);
-                    //     if let Some(mat) = world.write_storage::<TextBlock>().get_mut(target) {
-                    //         mat.rows[0] = "x".to_owned();
-                    //     }
-                    // })
+                    data.lazy.exec_mut(move |world| {
+                        crate::play::initialise_enemy(world);
+                    })
                 }
             } else {
                 data.log.send("Attacked an entity without Health");

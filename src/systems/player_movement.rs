@@ -53,6 +53,7 @@ impl<'s> System<'s> for PlayerMovementSystem {
             }
             Some(PlayerAction::Wait) => {}
             Some(PlayerAction::Quit) => {}
+            Some(PlayerAction::Grab) => {}
             None => {}
         }
     }

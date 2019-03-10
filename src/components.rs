@@ -1,6 +1,6 @@
 use amethyst::ecs::{Component, DenseVecStorage, Entity, FlaggedStorage, NullStorage};
 
-use crate::data::{Direction, Item};
+use crate::data::{Direction, Weapon};
 
 pub use amethyst::core::Named;
 
@@ -18,7 +18,7 @@ impl Component for Character {
     type Storage = NullStorage<Self>;
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct WorldPosition {
     pub x: i32,
     pub y: i32,
@@ -29,6 +29,10 @@ impl Component for WorldPosition {
 }
 
 impl WorldPosition {
+    pub fn new(x: i32, y: i32) -> Self {
+        WorldPosition { x, y }
+    }
+
     pub fn step_dir(&self, dir: Direction) -> WorldPosition {
         let mut wp = self.clone();
         match dir {
@@ -38,12 +42,6 @@ impl WorldPosition {
             Direction::Right => wp.x += 1,
         }
         return wp;
-    }
-}
-
-impl WorldPosition {
-    pub fn new(x: i32, y: i32) -> Self {
-        WorldPosition { x, y }
     }
 }
 
@@ -140,11 +138,24 @@ impl Component for LogDisplay {
     type Storage = NullStorage<Self>;
 }
 
-#[derive(Default)]
-pub struct InventoryDisplay;
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum InventoryDisplayKind {
+    Own,
+    Ground,
+}
+
+pub struct InventoryDisplay {
+    pub display_kind: InventoryDisplayKind,
+}
+
+impl InventoryDisplay {
+    pub fn new(display_kind: InventoryDisplayKind) -> Self {
+        InventoryDisplay { display_kind }
+    }
+}
 
 impl Component for InventoryDisplay {
-    type Storage = NullStorage<Self>;
+    type Storage = DenseVecStorage<Self>;
 }
 
 #[derive(Default)]
@@ -167,4 +178,21 @@ impl Inventory {
 
 impl Component for Inventory {
     type Storage = FlaggedStorage<Self, DenseVecStorage<Self>>;
+}
+
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Item {
+    Weapon(Weapon),
+}
+
+impl Item {
+    pub fn description(&self) -> String {
+        match self {
+            Item::Weapon(wep) => format!("Weapon: {}", wep.description()),
+        }
+    }
+}
+
+impl Component for Item {
+    type Storage = DenseVecStorage<Self>;
 }

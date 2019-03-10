@@ -135,7 +135,7 @@ impl<'s> System<'s> for TuiRenderSystem {
                     .iter()
                     .chain(["".to_owned()].iter().cycle())
                     .enumerate()
-                    .take(text_block.height as usize)
+                    .take((text_block.height).min(data.screen_size.height - global.0.y) as usize)
                 {
                     let y = i + global.0.y as usize;
                     let extra_width = i32::max(text_block.width - row.len() as i32, 0) as usize;

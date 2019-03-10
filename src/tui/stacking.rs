@@ -5,8 +5,6 @@ use crate::specs_ext::SpecsExt;
 use amethyst::ecs::{prelude::*, SystemData as _};
 use hibitset::BitSetLike;
 
-use crate::resources::LogEvents;
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum StackDirection {
     Horizontal,
@@ -99,7 +97,6 @@ pub struct SystemData<'s> {
     entities: Entities<'s>,
     parent: ReadStorage<'s, Parent>,
     parent_hierarchy: ReadExpect<'s, ParentHierarchy>,
-    log: Read<'s, LogEvents>,
     visible: ReadStorage<'s, Visible>,
 }
 
@@ -140,8 +137,6 @@ impl<'s> System<'s> for StackingSystem {
             return;
         }
 
-        data.log.send("Stacking run");
-
         #[derive(Debug)]
         struct Resolved {
             entity: Entity,
@@ -157,7 +152,6 @@ impl<'s> System<'s> for StackingSystem {
             if !dirty_contexts.contains(entity.id()) {
                 continue;
             }
-            data.log.send(format!("Stacking entity: {:?}", entity));
             if !data.parent.contains(entity) {
                 let block = data.text_block.get_mut_or_default(entity);
                 block.width = data.screen_size.width;
@@ -181,6 +175,7 @@ impl<'s> System<'s> for StackingSystem {
                     frozen: false,
                 })
                 .collect::<Vec<_>>();
+            let child_count = children.len();
 
             for child in &children {
                 if data.stacking_context.contains(child.entity) {
@@ -212,13 +207,16 @@ impl<'s> System<'s> for StackingSystem {
                     let one_flex: f32 =
                         ((total_width - used_size) as f32 / total_flex as f32).floor();
 
-                    for Resolved {
-                        entity,
-                        rule,
-                        frozen,
-                    } in &mut children
+                    for (
+                        i,
+                        Resolved {
+                            entity,
+                            rule,
+                            frozen,
+                        },
+                    ) in children.iter_mut().enumerate()
                     {
-                        let width: i32 = (rule.flex as f32 * one_flex).floor() as i32;
+                        let width: i32 = (rule.flex as f32 * one_flex).round() as i32;
                         let block = data.text_block.get_mut_or_default(*entity);
                         if !*frozen {
                             if let Some(min) = rule.min_width {
@@ -239,7 +237,11 @@ impl<'s> System<'s> for StackingSystem {
                             }
                         }
                         if !*frozen {
-                            block.width = width;
+                            block.width = if i == child_count - 1 {
+                                total_width - pos
+                            } else {
+                                width
+                            };
                         }
                         block.height = total_height;
                         let position = data.position.get_mut_or_default(*entity);
@@ -251,13 +253,16 @@ impl<'s> System<'s> for StackingSystem {
                     let one_flex: f32 =
                         ((total_height - used_size) as f32 / total_flex as f32).floor();
 
-                    for Resolved {
-                        entity,
-                        rule,
-                        frozen,
-                    } in &mut children
+                    for (
+                        i,
+                        Resolved {
+                            entity,
+                            rule,
+                            frozen,
+                        },
+                    ) in children.iter_mut().enumerate()
                     {
-                        let height: i32 = (rule.flex as f32 * one_flex).floor() as i32;
+                        let height: i32 = (rule.flex as f32 * one_flex).round() as i32;
                         let block = data.text_block.get_mut_or_default(*entity);
                         if !*frozen {
                             if let Some(min) = rule.min_height {
@@ -278,7 +283,11 @@ impl<'s> System<'s> for StackingSystem {
                             }
                         }
                         if !*frozen {
-                            block.height = height;
+                            block.height = if i == child_count - 1 {
+                                total_height - pos
+                            } else {
+                                height
+                            };
                         }
                         block.width = total_width;
                         let position = data.position.get_mut_or_default(*entity);

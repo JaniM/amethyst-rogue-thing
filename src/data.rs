@@ -1,4 +1,4 @@
-use amethyst::ecs::Entity;
+use amethyst::ecs::prelude::*;
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -16,6 +16,7 @@ pub enum Direction {
 pub enum PlayerAction {
     Move(Direction),
     Wait,
+    Grab,
     Quit,
 }
 
@@ -34,19 +35,6 @@ pub struct Weapon {
 impl Weapon {
     pub fn description(&self) -> String {
         format!("{} (ATK {})", self.name, self.damage)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum Item {
-    Weapon(Weapon),
-}
-
-impl Item {
-    pub fn description(&self) -> String {
-        match self {
-            Item::Weapon(wep) => format!("Weapon: {}", wep.description()),
-        }
     }
 }
 

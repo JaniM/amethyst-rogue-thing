@@ -1,7 +1,6 @@
 use crate::{
     components::{PlayerControlledCharacter, WorldPosition},
-    resources::{LogEvents, MovementActions, WorldMap, WorldPositionReader},
-    tui::Position,
+    resources::{LogEvents, MovementActions, WorldMap},
 };
 use amethyst::ecs::prelude::*;
 
@@ -12,9 +11,6 @@ pub struct SystemData<'s> {
     worldpos: WriteStorage<'s, WorldPosition>,
     movements: Write<'s, MovementActions>,
     map: Write<'s, WorldMap>,
-    entities: Entities<'s>,
-    reader: WriteExpect<'s, WorldPositionReader>,
-    screenpos: WriteStorage<'s, Position>,
     log: Read<'s, LogEvents>,
     player: ReadStorage<'s, PlayerControlledCharacter>,
 }
@@ -44,52 +40,6 @@ impl<'s> System<'s> for ApplyMovementSystem {
                         data.log
                             .send(format!("You see a {}", item.item.description()));
                     }
-                }
-            }
-        }
-
-        let mut dirty = BitSet::new();
-        let mut redo = false;
-
-        for event in data.worldpos.channel().read(&mut data.reader.0) {
-            match event {
-                ComponentEvent::Inserted(id) | ComponentEvent::Modified(id) => {
-                    dirty.add(*id);
-                }
-                ComponentEvent::Removed(_) => {
-                    redo = true;
-                }
-            }
-        }
-
-        if redo {
-            map.clear();
-            for (entity, wp, pos) in (
-                &data.entities,
-                &data.worldpos,
-                (&mut data.screenpos).maybe(),
-            )
-                .join()
-            {
-                map.tiles[wp.y as usize][wp.x as usize].character = Some(entity);
-                if let Some(pos) = pos {
-                    pos.x = wp.x;
-                    pos.y = wp.y;
-                }
-            }
-        } else {
-            for (entity, wp, pos, _) in (
-                &data.entities,
-                &data.worldpos,
-                (&mut data.screenpos).maybe(),
-                &dirty,
-            )
-                .join()
-            {
-                map.tiles[wp.y as usize][wp.x as usize].character = Some(entity);
-                if let Some(pos) = pos {
-                    pos.x = wp.x;
-                    pos.y = wp.y;
                 }
             }
         }

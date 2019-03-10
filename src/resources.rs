@@ -2,8 +2,8 @@ use amethyst::ecs::prelude::*;
 use crossbeam_channel as channel;
 
 use crate::{
-    components::WorldPosition,
-    data::{Attack, Direction, Item, PlayerAction},
+    components::{Item, WorldPosition},
+    data::{Attack, Direction, PlayerAction},
 };
 
 #[derive(Default, Debug, Clone)]
@@ -89,10 +89,11 @@ impl WorldMap {
         }
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         for y in 0..self.height {
             for x in 0..self.width {
-                self.tiles[y][x].character = None;
+                self.tiles[y][x] = WorldTile::default();
             }
         }
     }
@@ -105,7 +106,7 @@ impl WorldMap {
         }
     }
 
-    pub fn get(&mut self, pos: &WorldPosition) -> Option<&WorldTile> {
+    pub fn get(&self, pos: &WorldPosition) -> Option<&WorldTile> {
         if self.is_legal_pos(pos) {
             Some(&self.tiles[pos.y as usize][pos.x as usize])
         } else {
@@ -125,8 +126,6 @@ impl WorldMap {
         pos.x >= 0 && pos.x < self.width as i32 && pos.y >= 0 && pos.y < self.height as i32
     }
 }
-
-pub struct WorldPositionReader(pub ReaderId<ComponentEvent>);
 
 #[derive(Default, Debug, Clone)]
 pub struct EventLog {
