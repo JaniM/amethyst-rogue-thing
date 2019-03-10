@@ -53,7 +53,7 @@ impl<'s> System<'s> for ApplyWorldMapSystem {
                 if data.character.contains(entity) {
                     tile.character = None;
                 } else if data.item.contains(entity) {
-                    tile.items.retain(|x| x.entity == entity);
+                    tile.items.retain(|x| x.entity != entity);
                 }
             }
             if let Some(wp) = wp {
@@ -61,10 +61,12 @@ impl<'s> System<'s> for ApplyWorldMapSystem {
                 if data.character.contains(entity) {
                     tile.character = Some(entity);
                 } else if let Some(item) = data.item.get(entity) {
-                    tile.items.push(WorldItem {
-                        entity,
-                        item: item.clone(),
-                    });
+                    if tile.items.iter().find(|x| x.entity == entity).is_none() {
+                        tile.items.push(WorldItem {
+                            entity,
+                            item: item.clone(),
+                        });
+                    }
                 }
                 data.old_worldpos.insert(entity, OldWorldPosition(*wp)).ok();
             } else {

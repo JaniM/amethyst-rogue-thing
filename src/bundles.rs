@@ -35,15 +35,16 @@ impl<'a, 'b> SystemBundle<'a, 'b> for TickBundle {
         builder.add(ApplyAttacksSystem, "apply_attacks", &["player_movement"]);
         builder.add(ApplyMovementSystem, "apply_movement", &["player_movement"]);
         builder.add(
-            AggressiveAISystem,
-            "ai_movement",
-            &["apply_movement", "apply_attacks"],
+            ApplyWorldMapSystem::default(),
+            "apply_worldmap",
+            &["apply_attacks", "apply_movement"],
         );
+        builder.add(AggressiveAISystem, "ai_movement", &["apply_worldmap"]);
         builder.add(ApplyAttacksSystem, "apply_attacks_2", &["ai_movement"]);
         builder.add(ApplyMovementSystem, "apply_movement_2", &["ai_movement"]);
         builder.add(
             ApplyWorldMapSystem::default(),
-            "apply_worldmap",
+            "apply_worldmap_2",
             &["apply_attacks_2", "apply_movement_2"],
         );
         builder.add(StunSystem, "stun_system", &["apply_attacks_2"]);

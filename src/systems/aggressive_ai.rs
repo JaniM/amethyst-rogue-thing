@@ -58,7 +58,7 @@ impl<'s> System<'s> for AggressiveAISystem {
                 target
             };
             if let Some(target) = target {
-                if data.dead.get(target).is_some() {
+                if data.dead.get(target).is_some() || !data.entities.is_alive(target) {
                     data.target
                         .remove(entity)
                         .expect("Removing AggressionTarget failed");
