@@ -5,9 +5,11 @@ use crate::{
     data::*,
     resources::*,
     tui::{
+        border::Border,
         centering::Centered,
         components::*,
         stacking::{StackingContext, StackingRule},
+        visibility_relation::VisibleIfChildIs,
     },
     CustomGameData,
 };
@@ -49,38 +51,50 @@ impl<'a, 'b> State<CustomGameData<'a, 'b>, StateEvent> for PlayState {
             .with(StackingContext::vertical())
             .build();
 
-        world
+        let inventory_border = world
             .create_entity()
             .with(Parent { entity: rhs })
             .with(StackingRule::new())
+            .with(Border::new().left())
+            .build();
+
+        world
+            .create_entity()
+            .with(Parent {
+                entity: inventory_border,
+            })
+            .with(Position::new(2, 0))
             .with(InventoryDisplay::new(InventoryDisplayKind::Own))
             .build();
 
-        let ground = world
+        let ground_border = world
             .create_entity()
             .with(Parent { entity: rhs })
             .with(StackingRule::new())
+            .with(Border::new().top().left())
+            .with(VisibleIfChildIs)
+            .build();
+
+        world
+            .create_entity()
+            .with(Parent {
+                entity: ground_border,
+            })
+            .with(Position::new(2, 1))
             .with(InventoryDisplay::new(InventoryDisplayKind::Ground))
             .build();
 
-        world
-            .create_entity()
-            .with(Parent { entity: ground })
-            .with(Position::new(0, -1))
-            .with(TextBlock::single_row("+".to_owned() + &"-".repeat(1000)))
-            .build();
-
-        world
-            .create_entity()
-            .with(Parent { entity: rhs })
-            .with(StackingRule::new().max_height(1))
-            .with(TextBlock::single_row("+".to_owned() + &"-".repeat(1000)))
-            .build();
-
-        world
+        let log_border = world
             .create_entity()
             .with(Parent { entity: rhs })
             .with(StackingRule::new())
+            .with(Border::new().top().left())
+            .build();
+
+        world
+            .create_entity()
+            .with(Parent { entity: log_border })
+            .with(Position::new(2, 1))
             .with(LogDisplay)
             .build();
 

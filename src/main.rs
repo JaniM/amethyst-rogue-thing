@@ -97,7 +97,7 @@ fn main() -> amethyst::Result<()> {
         .with_live_bundle(LiveBundle::default())?
         .with_tick_bundle(TickBundle::default())?;
     let mut game = Application::build("./", PlayState)?
-        .with_frame_limit(FrameRateLimitStrategy::default(), 20)
+        .with_frame_limit(FrameRateLimitStrategy::Sleep, 30)
         .build(game_data)?;
 
     game.run();

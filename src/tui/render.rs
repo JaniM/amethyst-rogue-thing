@@ -168,14 +168,20 @@ impl<'s> System<'s> for TuiRenderSystem {
         }
 
         for y in 0..data.screen_size.height as usize {
+            let mut skipped = true;
             for (x, (old, new)) in self.backplane[y]
                 .chars()
                 .zip(swap[y].iter().map(|x| x.1))
                 .enumerate()
             {
                 if old != new {
-                    easy.move_rc(y as i32, x as i32);
+                    if skipped {
+                        easy.move_rc(y as i32, x as i32);
+                        skipped = false;
+                    }
                     easy.print_char(new);
+                } else {
+                    skipped = true;
                 }
             }
         }

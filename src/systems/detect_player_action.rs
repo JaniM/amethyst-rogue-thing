@@ -1,5 +1,8 @@
 use crate::{
-    components::{Inventory, PlayerControlledCharacter, WorldPosition},
+    components::{
+        Controlled, Inventory, InventoryDisplay, InventoryDisplayKind, PlayerControlledCharacter,
+        WorldPosition,
+    },
     data::{Direction, PlayerAction},
     resources::{LogEvents, PlayerActionResource, WorldMap},
     tui::Key,
@@ -22,7 +25,9 @@ pub struct SystemData<'s> {
     log: Read<'s, LogEvents>,
     player: ReadStorage<'s, PlayerControlledCharacter>,
     inventory: WriteStorage<'s, Inventory>,
+    inventory_display: WriteStorage<'s, InventoryDisplay>,
     position: ReadStorage<'s, WorldPosition>,
+    controlled: WriteStorage<'s, Controlled>,
     world_map: Write<'s, WorldMap>,
     entities: Entities<'s>,
 }
@@ -34,6 +39,61 @@ impl<'s> System<'s> for DetectPlayerActionSystem {
         use Direction::*;
 
         let mut action = None;
+        let mut remove_control = None;
+
+        for (entity, display, _active) in (
+            &data.entities,
+            &mut data.inventory_display,
+            &data.controlled,
+        )
+            .join()
+        {
+            for key in data.inputs.read(self.reader.as_mut().unwrap()) {
+                match key {
+                    Key::Character('\u{1b}') => action = Some(PlayerAction::Quit),
+                    Key::Character('q') => {
+                        remove_control = Some(entity);
+                        display.cursor_pos = None;
+                    }
+                    Key::Character('w') => {
+                        display.cursor_pos = Some(display.cursor_pos.map_or(0, |x| 0.max(x - 1)));
+                    }
+                    Key::Character('s') => {
+                        display.cursor_pos = Some(display.cursor_pos.map_or(0, |x| 0.max(x + 1)));
+                    }
+                    Key::Character(' ') => {
+                        if display.display_kind == InventoryDisplayKind::Ground {
+                            for (position, inventory, _player) in
+                                (&data.position, &mut data.inventory, &data.player).join()
+                            {
+                                if let Some(tile) = data.world_map.get_mut(position) {
+                                    if tile.items.len() > display.cursor_pos.unwrap_or(0) as usize {
+                                        let item = tile
+                                            .items
+                                            .remove(display.cursor_pos.unwrap_or(0) as usize);
+                                        data.entities.delete(item.entity).ok();
+                                        data.log
+                                            .send(format!("Grabbed {}", item.item.description()));
+                                        inventory.items.push(item.item);
+                                        if tile.items.len() == 0 {
+                                            remove_control = Some(entity);
+                                            display.cursor_pos = None;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    x => {
+                        data.log.send(format!("Unrecognized input: {:?}", x));
+                    }
+                }
+            }
+        }
+
+        if let Some(entity) = remove_control {
+            data.controlled.remove(entity);
+        }
 
         for key in data.inputs.read(self.reader.as_mut().unwrap()) {
             match key {
@@ -51,17 +111,10 @@ impl<'s> System<'s> for DetectPlayerActionSystem {
         }
 
         if action == Some(PlayerAction::Grab) {
-            for (position, inventory, _player) in
-                (&data.position, &mut data.inventory, &data.player).join()
-            {
-                if let Some(tile) = data.world_map.get_mut(position) {
-                    if tile.items.len() > 0 {
-                        let item = tile.items.remove(0);
-                        data.entities.delete(item.entity).ok();
-                        data.log
-                            .send(format!("Grabbed {}", item.item.description()));
-                        inventory.items.push(item.item);
-                    }
+            for (entity, inventory) in (&data.entities, &mut data.inventory_display).join() {
+                if inventory.display_kind == InventoryDisplayKind::Ground {
+                    inventory.cursor_pos = Some(0);
+                    data.controlled.insert(entity, Controlled).ok();
                 }
             }
             action = None;

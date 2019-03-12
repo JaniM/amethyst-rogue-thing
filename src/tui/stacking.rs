@@ -84,6 +84,7 @@ impl Component for StackingRule {
 #[derive(Default)]
 pub struct StackingSystem {
     tui_reader: Option<ReaderId<TuiEvent>>,
+    visible_reader: Option<ReaderId<ComponentEvent>>,
 }
 
 #[derive(SystemData)]
@@ -116,10 +117,21 @@ impl<'s> System<'s> for StackingSystem {
                         }
                     }
                 }
-                TuiEvent::Visible { entity, .. } => {
-                    dirty_entities.add(entity.id());
-                }
                 _ => {}
+            }
+        }
+
+        for event in data
+            .visible
+            .channel()
+            .read(self.visible_reader.as_mut().unwrap())
+        {
+            match event {
+                ComponentEvent::Modified(id)
+                | ComponentEvent::Inserted(id)
+                | ComponentEvent::Removed(id) => {
+                    dirty_entities.add(*id);
+                }
             }
         }
 
@@ -308,5 +320,6 @@ impl<'s> System<'s> for StackingSystem {
         Self::SystemData::setup(res);
 
         self.tui_reader = Some(res.get_mut::<TuiChannel>().unwrap().register_reader());
+        self.visible_reader = Some(WriteStorage::<Visible>::fetch(&res).register_reader());
     }
 }

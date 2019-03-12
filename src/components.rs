@@ -146,16 +146,20 @@ pub enum InventoryDisplayKind {
 
 pub struct InventoryDisplay {
     pub display_kind: InventoryDisplayKind,
+    pub cursor_pos: Option<i32>,
 }
 
 impl InventoryDisplay {
     pub fn new(display_kind: InventoryDisplayKind) -> Self {
-        InventoryDisplay { display_kind }
+        InventoryDisplay {
+            display_kind,
+            cursor_pos: None,
+        }
     }
 }
 
 impl Component for InventoryDisplay {
-    type Storage = DenseVecStorage<Self>;
+    type Storage = FlaggedStorage<Self, DenseVecStorage<Self>>;
 }
 
 #[derive(Default)]
@@ -195,4 +199,11 @@ impl Item {
 
 impl Component for Item {
     type Storage = DenseVecStorage<Self>;
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+pub struct Controlled;
+
+impl Component for Controlled {
+    type Storage = NullStorage<Self>;
 }

@@ -1,8 +1,9 @@
 use crate::{
     components::{
-        Inventory, InventoryDisplay, InventoryDisplayKind, PlayerControlledCharacter, WorldPosition, Item
+        Inventory, InventoryDisplay, InventoryDisplayKind, Item, PlayerControlledCharacter,
+        WorldPosition,
     },
-    data::{calculate_hash},
+    data::calculate_hash,
     resources::WorldMap,
     specs_ext::SpecsExt,
     tui::{TextBlock, TuiChannel, TuiEvent, Visible},
@@ -15,6 +16,7 @@ pub struct InventoryDisplaySystem {
     old_inventory_hash: Option<u64>,
     old_ground_hash: Option<u64>,
     tui_reader: Option<ReaderId<TuiEvent>>,
+    display_reader: Option<ReaderId<ComponentEvent>>,
 }
 
 #[derive(SystemData)]
@@ -41,6 +43,20 @@ impl<'s> System<'s> for InventoryDisplaySystem {
             displays.add(entity.id());
         }
 
+        for event in data
+            .inventory_display
+            .channel()
+            .read(self.display_reader.as_mut().unwrap())
+        {
+            match event {
+                ComponentEvent::Inserted(_)
+                | ComponentEvent::Modified(_)
+                | ComponentEvent::Removed(_) => {
+                    dirty_displays = true;
+                }
+            }
+        }
+
         for event in data.tui_channel.read(self.tui_reader.as_mut().unwrap()) {
             match event {
                 TuiEvent::TextBlock {
@@ -55,6 +71,7 @@ impl<'s> System<'s> for InventoryDisplaySystem {
                 _ => {}
             }
         }
+
         for (inventory, _player) in (&data.inventory, &data.player).join() {
             let hash = Some(calculate_hash(&inventory.items));
             let dirty = hash != self.old_inventory_hash || dirty_displays;
@@ -96,6 +113,7 @@ impl<'s> System<'s> for InventoryDisplaySystem {
         Self::SystemData::setup(res);
 
         self.tui_reader = Some(res.get_mut::<TuiChannel>().unwrap().register_reader());
+        self.display_reader = Some(WriteStorage::<InventoryDisplay>::fetch(&res).register_reader());
     }
 }
 
@@ -111,15 +129,15 @@ fn build_inventory<T>(
     T: Borrow<Item>,
 {
     let title = match kind {
-        InventoryDisplayKind::Own => "| Inventory",
-        InventoryDisplayKind::Ground => "| Items on the ground",
+        InventoryDisplayKind::Own => "Inventory",
+        InventoryDisplayKind::Ground => "Items on the ground",
     };
     for (entity, block, display) in (entities, text_block, inventory_display).join() {
         if display.display_kind != kind {
             continue;
         }
-        visible.get_mut_or_default(entity).0 = is_visible;
-        block.rows = [title, "| "]
+        visible.get_mut_or_default(entity).0 = is_visible || display.cursor_pos.is_some();
+        block.rows = [title, ""]
             .into_iter()
             .map(|x| (*x).to_owned())
             .chain(
@@ -127,12 +145,21 @@ fn build_inventory<T>(
                     .iter()
                     .map(|item| item.borrow().description())
                     .chain(["".to_owned()].into_iter().cycle().cloned())
-                    .map(|x| {
-                        ("| * ".to_owned() + &x)
-                            .chars()
-                            .chain([' '].into_iter().cycle().cloned())
-                            .take(block.width as usize - 1)
-                            .collect()
+                    .enumerate()
+                    .map(|(i, x)| {
+                        format!(
+                            "*{} {}",
+                            if Some(i as i32) == display.cursor_pos {
+                                " >"
+                            } else {
+                                ""
+                            },
+                            x
+                        )
+                        .chars()
+                        .chain([' '].into_iter().cycle().cloned())
+                        .take(block.width as usize - 1)
+                        .collect()
                     }),
             )
             .take(block.height as usize + 50)
