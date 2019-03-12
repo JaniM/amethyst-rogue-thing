@@ -73,11 +73,7 @@ where
     where
         D: Deref<Target = storage::MaskedStorage<C>> + 'a,
     {
-        for event in source.channel().read(
-            self.reader_id
-                .as_mut()
-                .expect("EventReader::setup wasn't called before use"),
-        ) {
+        for event in self.read(source) {
             match event {
                 ComponentEvent::Modified(id)
                 | ComponentEvent::Inserted(id)
