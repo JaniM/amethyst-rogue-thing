@@ -1,5 +1,5 @@
 use super::{Parent, ParentHierarchy, TuiChannel, TuiEvent, Visible};
-use crate::specs_ext::SpecsExt;
+use crate::specs_ext::{ComponentEventReader, SpecsExt};
 use amethyst::ecs::{prelude::*, SystemData as _};
 use hibitset::BitSetLike;
 
@@ -12,14 +12,13 @@ impl Component for VisibleIfChildIs {
 
 #[derive(Default)]
 pub struct VisibilityRelationSystem {
-    tui_reader: Option<ReaderId<TuiEvent>>,
+    visibility_reader: ComponentEventReader<Visible>,
 }
 
 #[derive(SystemData)]
 pub struct SystemData<'s> {
     visible: WriteStorage<'s, Visible>,
     visible_if_child: ReadStorage<'s, VisibleIfChildIs>,
-    tui_channel: Read<'s, TuiChannel>,
     parent: ReadStorage<'s, Parent>,
     parent_hierarchy: ReadExpect<'s, ParentHierarchy>,
 }
@@ -29,15 +28,8 @@ impl<'s> System<'s> for VisibilityRelationSystem {
 
     fn run(&mut self, mut data: Self::SystemData) {
         let mut dirty = BitSet::new();
-
-        for event in data.tui_channel.read(self.tui_reader.as_mut().unwrap()) {
-            match event {
-                TuiEvent::Visible { entity, .. } => {
-                    dirty.add(entity.id());
-                }
-                _ => {}
-            }
-        }
+        self.visibility_reader
+            .read_to_bitset(&data.visible, &mut dirty);
 
         if dirty.is_empty() {
             return;
@@ -59,6 +51,6 @@ impl<'s> System<'s> for VisibilityRelationSystem {
     fn setup(&mut self, res: &mut Resources) {
         Self::SystemData::setup(res);
 
-        self.tui_reader = Some(res.get_mut::<TuiChannel>().unwrap().register_reader());
+        self.visibility_reader.setup(&res);
     }
 }
