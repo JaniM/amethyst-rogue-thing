@@ -1,5 +1,5 @@
-use super::{ParentHierarchy, Position, TextBlock, TuiChannel, TuiEvent};
-use crate::specs_ext::SpecsExt;
+use super::{ParentHierarchy, Position, TextBlock};
+use crate::specs_ext::{ComponentEventReader, SpecsExt};
 use amethyst::ecs::{prelude::*, SystemData as _};
 use hibitset::BitSetLike;
 
@@ -75,7 +75,7 @@ impl Component for Border {
 
 #[derive(Default)]
 pub struct BorderSystem {
-    tui_reader: Option<ReaderId<TuiEvent>>,
+    textblock_reader: ComponentEventReader<TextBlock>,
 }
 
 #[derive(SystemData)]
@@ -83,7 +83,6 @@ pub struct SystemData<'s> {
     text_block: WriteStorage<'s, TextBlock>,
     position: WriteStorage<'s, Position>,
     border: ReadStorage<'s, Border>,
-    tui_channel: Read<'s, TuiChannel>,
     entities: Entities<'s>,
     parent_hierarchy: ReadExpect<'s, ParentHierarchy>,
 }
@@ -94,14 +93,8 @@ impl<'s> System<'s> for BorderSystem {
     fn run(&mut self, mut data: Self::SystemData) {
         let mut dirty = BitSet::new();
 
-        for event in data.tui_channel.read(self.tui_reader.as_mut().unwrap()) {
-            match event {
-                TuiEvent::TextBlock { entity, .. } => {
-                    dirty.add(entity.id());
-                }
-                _ => {}
-            }
-        }
+        self.textblock_reader
+            .read_to_bitset(&data.text_block, &mut dirty);
 
         if dirty.is_empty() {
             return;
@@ -174,6 +167,6 @@ impl<'s> System<'s> for BorderSystem {
     fn setup(&mut self, res: &mut Resources) {
         Self::SystemData::setup(res);
 
-        self.tui_reader = Some(res.get_mut::<TuiChannel>().unwrap().register_reader());
+        self.textblock_reader.setup(&res);
     }
 }
