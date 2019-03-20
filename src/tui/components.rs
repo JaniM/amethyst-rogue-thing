@@ -66,10 +66,10 @@ pub struct TextBlock {
 
 #[allow(dead_code)]
 impl TextBlock {
-    pub fn new<T, K>(rows: T, width: i32, height: i32) -> Self
+    pub fn new<T>(rows: T, width: i32, height: i32) -> Self
     where
-        T: IntoIterator<Item = K>,
-        K: Into<String>,
+        T: IntoIterator,
+        T::Item: Into<String>,
     {
         TextBlock {
             rows: rows.into_iter().map(|x| x.into()).collect(),

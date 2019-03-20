@@ -83,7 +83,8 @@ impl<'s> System<'s> for ApplyAttacksSystem {
                     ));
                     data.lazy.exec_mut(move |world| {
                         crate::play::initialise_enemy(world);
-                    })
+                    });
+                    data.log.send("New enemy appears!");
                 }
             } else {
                 data.log.send("Attacked an entity without Health");

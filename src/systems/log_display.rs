@@ -1,6 +1,6 @@
 use crate::{
     components::LogDisplay,
-    resources::{EventLog, LogEvents},
+    resources::{EventLog, LogEvents, TurnCounter},
     tui::TextBlock,
 };
 use amethyst::{core::Time, ecs::prelude::*};
@@ -15,6 +15,7 @@ pub struct SystemData<'s> {
     text_block: WriteStorage<'s, TextBlock>,
     log_display: ReadStorage<'s, LogDisplay>,
     time: Read<'s, Time>,
+    turn: Read<'s, TurnCounter>,
 }
 
 impl<'s> System<'s> for LogDisplaySystem {
@@ -31,10 +32,9 @@ impl<'s> System<'s> for LogDisplaySystem {
 
         if dirty {
             for (block, _) in (&mut data.text_block, &data.log_display).join() {
-                block.rows = data
-                    .log
-                    .events
+                block.rows = ["".to_owned()]
                     .iter()
+                    .chain(data.log.events.iter())
                     .chain(["".to_owned()].into_iter().cycle())
                     .cloned()
                     .take(block.height as usize + 50)
@@ -43,7 +43,8 @@ impl<'s> System<'s> for LogDisplaySystem {
         }
         for (block, _) in (&mut data.text_block, &data.log_display).join() {
             if block.rows.len() > 0 {
-                block.rows[0] = format!("{}", data.time.delta_seconds());
+                block.rows[0] =
+                    format!("Turn {}, delta {}", data.turn.0, data.time.delta_seconds());
             }
         }
     }

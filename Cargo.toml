@@ -12,3 +12,7 @@ crossbeam-channel = "0.3.8"
 easycurses = "0.12.2"
 specs-hierarchy = "0.3.0"
 hibitset = "0.5.4"
+rand = "0.6.5"
+
+[profile.release]
+debug = true

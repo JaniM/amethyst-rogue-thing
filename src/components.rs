@@ -1,6 +1,6 @@
 use amethyst::ecs::{Component, DenseVecStorage, Entity, FlaggedStorage, NullStorage};
 
-use crate::data::{Direction, Weapon};
+use crate::data::{Direction, ItemPart, ItemProperties};
 
 pub use amethyst::core::Named;
 
@@ -185,15 +185,31 @@ impl Component for Inventory {
 }
 
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum Item {
-    Weapon(Weapon),
+pub struct Item {
+    pub parts: Vec<ItemPart>,
 }
 
 impl Item {
-    pub fn description(&self) -> String {
-        match self {
-            Item::Weapon(wep) => format!("Weapon: {}", wep.description()),
+    pub fn new<T>(parts: T) -> Self
+    where
+        T: IntoIterator<Item = ItemPart>,
+    {
+        Item {
+            parts: parts.into_iter().collect(),
         }
+    }
+
+    pub fn description(&self) -> String {
+        let mut props = ItemProperties::default();
+        for part in &self.parts {
+            part.collect_properties(&mut props);
+        }
+        let mut desc = String::new();
+        desc.push_str(&props.name);
+        if let Some(dmg) = props.damage {
+            desc.push_str(&format!(" (ATK {})", dmg));
+        }
+        desc
     }
 }
 

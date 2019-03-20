@@ -6,6 +6,7 @@ extern crate crossbeam_channel;
 extern crate easycurses;
 extern crate hibitset;
 extern crate specs_hierarchy;
+extern crate rand;
 
 mod bundles;
 mod components;

@@ -145,21 +145,30 @@ fn initialise_player(world: &mut World) {
         .with(Named::new("Player"))
         .with(Blink::new(0.5))
         .with(ZLevel::new(1))
-        .with(Inventory::new(vec![Item::Weapon(Weapon {
-            name: "Test weapon".to_owned(),
-            damage: -1,
-        })]))
+        .with(Inventory::new(vec![Item::new(vec![
+            ItemPart::Name("Test weapon".into()),
+            ItemPart::Damage(-1),
+        ])]))
         .build();
+
+    // Character + WprldPosition: recognized as a character in the world
+    // Character + WorldPosition + Team + Health: recognized as a character that can be attacked
+    // PlayerControlledCharacter: reads player input
+    // Parent + Position + TextBlock: recognized as a renderable thing
+    // Inventory: has items, can pick up items, drops them when dead
+    // etc
 
     world.add_resource(PlayerEntity(Some(entity)));
 }
 
 pub fn initialise_enemy(world: &mut World) {
+    use rand::Rng;
     let board = world.read_resource::<Board>().0.unwrap();
+    let mut rng = rand::thread_rng();
     world
         .create_entity()
         .with(Character)
-        .with(WorldPosition::new(5, 5))
+        .with(WorldPosition::new(8, 8))
         .with(Parent { entity: board })
         .with(Team(1))
         .with(AggressiveAI::new(&[0]))
@@ -167,10 +176,10 @@ pub fn initialise_enemy(world: &mut World) {
         .with(Position::default())
         .with(TextBlock::single_row("c"))
         .with(ZLevel::new(1))
-        .with(Inventory::new(vec![Item::Weapon(Weapon {
-            name: "Wooden nail".to_owned(),
-            damage: 2,
-        })]))
+        .with(Inventory::new(vec![Item::new(vec![
+            ItemPart::Name(["Wooden nail", "Shoe", "???"][rng.gen_range(0, 3)].into()),
+            ItemPart::Damage(rng.gen_range(0, 5)),
+        ])]))
         .with(Named::new("Enemy"))
         .build();
 }

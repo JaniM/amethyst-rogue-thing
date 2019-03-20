@@ -147,3 +147,6 @@ pub type LogEvents = MpscChannel<LogLine>;
 
 #[derive(Default)]
 pub struct Board(pub Option<Entity>);
+
+#[derive(Default)]
+pub struct TurnCounter(pub i32);

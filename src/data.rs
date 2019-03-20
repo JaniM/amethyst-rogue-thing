@@ -1,5 +1,6 @@
 use amethyst::ecs::prelude::*;
 use std::{
+    borrow::Cow,
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
 };
@@ -26,15 +27,29 @@ pub struct Attack {
     pub target: Entity,
 }
 
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub struct Weapon {
-    pub name: String,
-    pub damage: i32,
+#[derive(Default, Debug, Clone, PartialEq, Hash)]
+pub struct ItemProperties {
+    pub name: Cow<'static, str>,
+    pub damage: Option<i32>,
 }
 
-impl Weapon {
-    pub fn description(&self) -> String {
-        format!("{} (ATK {})", self.name, self.damage)
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum ItemPart {
+    Name(Cow<'static, str>),
+    Damage(i32),
+}
+
+impl ItemPart {
+    pub fn collect_properties(&self, prop: &mut ItemProperties) {
+        use ItemPart::*;
+        match *self {
+            Name(ref name) => {
+                prop.name.to_mut().push_str(name);
+            }
+            Damage(dmg) => {
+                prop.damage = Some(prop.damage.map_or(dmg, |x| x + dmg));
+            }
+        }
     }
 }
 
