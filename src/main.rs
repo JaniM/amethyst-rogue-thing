@@ -5,8 +5,8 @@ extern crate shred_derive;
 extern crate crossbeam_channel;
 extern crate easycurses;
 extern crate hibitset;
-extern crate specs_hierarchy;
 extern crate rand;
+extern crate specs_hierarchy;
 
 mod bundles;
 mod components;
@@ -14,6 +14,7 @@ mod data;
 mod play;
 mod resources;
 mod specs_ext;
+mod system_chain;
 mod systems;
 mod tui;
 

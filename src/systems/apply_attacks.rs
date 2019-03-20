@@ -3,6 +3,7 @@ use crate::{
     play::initialise_item,
     resources::{AttackActions, Board, LogEvents, WorldMap},
     specs_ext::SpecsExt,
+    system_chain,
 };
 use amethyst::ecs::prelude::*;
 
@@ -22,6 +23,8 @@ pub struct SystemData<'s> {
     position: ReadStorage<'s, WorldPosition>,
     board: Read<'s, Board>,
     entities: Entities<'s>,
+    damage_chain:
+        system_chain::ReifiedEventSystem<'s, (system_chain::WeaponDamage, system_chain::Test)>,
 }
 
 impl<'s> System<'s> for ApplyAttacksSystem {
@@ -34,7 +37,10 @@ impl<'s> System<'s> for ApplyAttacksSystem {
             if data.dead.get(target).is_some() {
                 data.log.send("Attacked a dead target");
             } else if let Some(health) = data.health.get_mut(target) {
-                health.health -= 1;
+                let mut evt = (attack_event.attacker, 1);
+                data.damage_chain.run(&mut evt);
+
+                health.health -= evt.1;
                 data.log.send(format!(
                     "{} (id {}) attacked {} (id {}): {} hp left",
                     data.name
